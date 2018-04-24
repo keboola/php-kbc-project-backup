@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\StorageApi\Cli\Tests\Command;
+namespace Keboola\StorageApi\ProjectTests\Backup;
 
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
@@ -12,7 +12,7 @@ use Keboola\StorageApi\Options\Components\ConfigurationRow;
 use Keboola\StorageApi\Project\BackupS3;
 use Keboola\Temp\Temp;
 
-class BackupProjectTest extends \PHPUnit_Framework_TestCase
+class BackupS3Tests extends \PHPUnit_Framework_TestCase
 {
     /**
      * @var StorageApi
@@ -38,7 +38,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         putenv('AWS_ACCESS_KEY_ID=' . TEST_AWS_ACCESS_KEY_ID);
         putenv('AWS_SECRET_ACCESS_KEY=' . TEST_AWS_SECRET_ACCESS_KEY);
 
-        $this->sapiClient = new S3Client([
+        $this->s3Client = new S3Client([
             'version' => 'latest',
             'region' => TEST_AWS_REGION,
         ]);
@@ -82,10 +82,11 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/configurations.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
 
         $targetContents = file_get_contents($targetFile);
+
         $targetData = json_decode($targetContents, true);
         $targetComponent = [];
         foreach ($targetData as $component) {
@@ -111,7 +112,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/configurations/transformation/' . $configurationId . '.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents($targetFile);
         $targetConfiguration = json_decode($targetContents, true);
@@ -174,7 +175,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/configurations/transformation/' . $config->getConfigurationId() . '.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents($targetFile);
         $targetConfiguration = json_decode($targetContents, true);
@@ -259,7 +260,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/configurations.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents($targetFile);
         $targetData = json_decode($targetContents);
@@ -273,7 +274,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/configurations/transformation/' . $configurationId . '.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents($targetFile);
         $targetConfiguration = json_decode($targetContents);
@@ -306,7 +307,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/buckets.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
         $buckets = json_decode(file_get_contents($targetFile), true);
 
@@ -317,7 +318,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/tables.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
 
         $tables = json_decode(file_get_contents($targetFile), true);
@@ -361,7 +362,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/buckets.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
 
         $data = json_decode(file_get_contents($targetFile), true);
@@ -372,7 +373,7 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->s3Client->getObject([
             'Bucket' => TEST_S3_BUCKET,
             'Key' => 'backup/tables.json',
-            'SaveAs' => $targetFile,
+            'SaveAs' => (string) $targetFile,
         ]);
         $data = json_decode(file_get_contents($targetFile), true);
         $this->assertEquals("tableKey", $data[0]["metadata"][0]["key"]);
@@ -387,8 +388,8 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/../data/sample.csv"));
 
         $backup = new BackupS3($this->sapiClient, $this->s3Client);
-        $backup->backupTablesMetadata(TEST_S3_BUCKET, '');
-        $backup->backupConfigs(TEST_S3_BUCKET, '');
+        $backup->backupTablesMetadata(TEST_S3_BUCKET, null);
+        $backup->backupConfigs(TEST_S3_BUCKET, null, false);
 
         $keys = array_map(function ($key) {
             return $key["Key"];
@@ -400,12 +401,6 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
         self::assertTrue(in_array('tables.json', $keys));
         self::assertTrue(in_array('configurations.json', $keys));
         self::assertCount(3, $keys);
-    }
-
-    public function tearDown(): void
-    {
-        $this->cleanupKbcProject();
-        $this->cleanupS3();
     }
 
     private function cleanupKbcProject()
@@ -431,8 +426,13 @@ class BackupProjectTest extends \PHPUnit_Framework_TestCase
 
     private function cleanupS3()
     {
-        $keys = $this->s3Client->listObjects(['Bucket' => TEST_S3_BUCKET]);
-        $keys = $keys->toArray()['Contents'];
+        $keys = $this->s3Client->listObjects(['Bucket' => TEST_S3_BUCKET])->toArray();
+        if (isset($keys['Contents'])) {
+            $keys = $keys['Contents'];
+        } else {
+            $keys = [];
+        }
+
         $deleteObjects = [];
         foreach ($keys as $key) {
             $deleteObjects[] = $key;
