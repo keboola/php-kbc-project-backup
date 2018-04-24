@@ -36,15 +36,19 @@ class BackupS3
         $this->logger = $logger?: new NullLogger();
     }
 
+    private function trimTargetBasePath(string $targetBasePath = null)
+    {
+        if (empty($targetBasePath) || $targetBasePath === '/') {
+            return '';
+        } else {
+            return rtrim($targetBasePath, '/') . '/';
+        }
+    }
+
     public function backup(string $targetBucket, string $targetBasePath = null): void
     {
         $onlyStructure = false;
         $includeVersions = true;
-        if ($targetBasePath === '' || $targetBasePath === '/') {
-            $targetBasePath = '';
-        } else {
-            $targetBasePath = rtrim($targetBasePath, '/') . '/';
-        }
 
         //@FIXME backup methods cannot return void
 
@@ -68,8 +72,9 @@ class BackupS3
     }
 
 
-    public function backupTablesMetadata(string $targetBucket, string $targetBasePath): array
+    public function backupTablesMetadata(string $targetBucket, string $targetBasePath = null): array
     {
+        $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $this->logger->info('Exporting buckets');
 
         $this->s3Client->putObject([
@@ -93,8 +98,9 @@ class BackupS3
         return array_map(function ($row) { return $row['id']; }, $tables);
     }
 
-    public function backupTable(string $tableId, string $targetBucket, string $targetBasePath): void
+    public function backupTable(string $tableId, string $targetBucket, string $targetBasePath = null): void
     {
+        $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $this->logger->info(sprintf('Exporting table %s', $tableId));
 
         $tmp = new Temp();
@@ -170,6 +176,7 @@ class BackupS3
 
     public function backupConfigs($targetBucket, $targetBasePath = null, $saveVersions): void
     {
+        $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $limit = self::CONFIGS_VERSION_LIMIT;
         $this->logger->info('Exporting configurations');
 
