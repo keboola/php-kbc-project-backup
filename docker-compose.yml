@@ -1,0 +1,20 @@
+version: "2"
+
+services:
+
+  tests:
+    build: .
+    volumes:
+      - .:/code
+      - ./tmp:/tmp
+    working_dir: /code
+    command: php ./vendor/bin/phpunit'
+    tty: true
+    stdin_open: true
+    environment:
+      - TEST_BACKUP_AWS_ACCESS_KEY_ID
+      - TEST_BACKUP_AWS_SECRET_ACCESS_KEY
+      - TEST_AWS_REGION
+      - TEST_BACKUP_S3_BUCKET
+      - TEST_STORAGE_API_TOKEN
+      - TEST_STORAGE_API_URL
