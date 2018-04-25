@@ -17,12 +17,12 @@
   },
   "autoload": {
     "psr-4": {
-      "Keboola\\StorageApi\\Project\\": "src/"
+      "Keboola\\ProjectBackup\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Keboola\\StorageApi\\ProjectTests\\": "tests/"
+      "Keboola\\ProjectBackup\\Tests\\": "tests/"
     }
   },
   "scripts": {

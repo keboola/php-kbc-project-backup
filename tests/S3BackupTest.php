@@ -1,6 +1,6 @@
 <?php
 
-namespace Keboola\StorageApi\ProjectTests\Backup;
+namespace Keboola\ProjectBackup\Tests;
 
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
@@ -9,10 +9,11 @@ use Keboola\StorageApi\Components;
 use Keboola\StorageApi\Metadata;
 use Keboola\StorageApi\Options\Components\Configuration;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
-use Keboola\StorageApi\Project\BackupS3;
+use Keboola\ProjectBackup\S3Backup;
 use Keboola\Temp\Temp;
+use PHPUnit\Framework\TestCase;
 
-class BackupS3Tests extends \PHPUnit_Framework_TestCase
+class S3BackupTest extends TestCase
 {
     /**
      * @var StorageApi
@@ -72,7 +73,7 @@ class BackupS3Tests extends \PHPUnit_Framework_TestCase
         );
         $component->addConfigurationRow($row);
 
-        $backup = new BackupS3($this->sapiClient, $this->s3Client);
+        $backup = new S3Backup($this->sapiClient, $this->s3Client);
         $backup->backup(TEST_S3_BUCKET, 'backup');
 
         $temp = new Temp();
@@ -165,7 +166,7 @@ class BackupS3Tests extends \PHPUnit_Framework_TestCase
             $component->addConfigurationRow($row);
         }
 
-        $backup = new BackupS3($this->sapiClient, $this->s3Client);
+        $backup = new S3Backup($this->sapiClient, $this->s3Client);
         $backup->backupConfigs(TEST_S3_BUCKET, 'backup', false);
 
         $temp = new Temp();
@@ -250,7 +251,7 @@ class BackupS3Tests extends \PHPUnit_Framework_TestCase
         );
         $component->addConfigurationRow($row);
 
-        $backup = new BackupS3($this->sapiClient, $this->s3Client);
+        $backup = new S3Backup($this->sapiClient, $this->s3Client);
         $backup->backupConfigs(TEST_S3_BUCKET, 'backup', false); //@FIXME maybe tests versions too
 
         $temp = new Temp();
@@ -290,14 +291,14 @@ class BackupS3Tests extends \PHPUnit_Framework_TestCase
         $this->sapiClient->setBucketAttribute($bucketId, 'key', 'value', true);
         $this->sapiClient->shareBucket($bucketId, ['sharing' => 'organization']);
 
-        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/../data/sample.csv"));
+        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/data/sample.csv"));
 
         $token = $this->sapiClient->verifyToken();
         $projectId = $token['owner']['id'];
 
         $this->sapiClient->linkBucket('linked', 'in', $projectId, $bucketId);
 
-        $backup = new BackupS3($this->sapiClient, $this->s3Client);
+        $backup = new S3Backup($this->sapiClient, $this->s3Client);
         $backup->backupTablesMetadata(TEST_S3_BUCKET, 'backup');
 
         $temp = new Temp();
@@ -352,7 +353,7 @@ class BackupS3Tests extends \PHPUnit_Framework_TestCase
             ],
         ]);
 
-        $backup = new BackupS3($this->sapiClient, $this->s3Client);
+        $backup = new S3Backup($this->sapiClient, $this->s3Client);
         $backup->backupTablesMetadata(TEST_S3_BUCKET, 'backup');
 
         $temp = new Temp();
@@ -387,7 +388,7 @@ class BackupS3Tests extends \PHPUnit_Framework_TestCase
         $this->sapiClient->createBucket("main", StorageApi::STAGE_IN);
         $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/../data/sample.csv"));
 
-        $backup = new BackupS3($this->sapiClient, $this->s3Client);
+        $backup = new S3Backup($this->sapiClient, $this->s3Client);
         $backup->backupTablesMetadata(TEST_S3_BUCKET, null);
         $backup->backupConfigs(TEST_S3_BUCKET, null, false);
 

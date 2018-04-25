@@ -1,5 +1,5 @@
 <?php
-namespace Keboola\StorageApi\Project;
+namespace Keboola\ProjectBackup;
 
 use Aws\S3\S3Client;
 use Keboola\StorageApi\Client AS StorageApi;
@@ -10,7 +10,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Filesystem\Filesystem;
 
-class BackupS3
+class S3Backup
 {
     private const CONFIGS_VERSION_LIMIT = 2;
 
