@@ -1,0 +1,68 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Keboola Connection - Project Backup to S3",
+  "Resources": {
+    "S3FilesBucket": {
+      "Type": "AWS::S3::Bucket"
+    },
+    "User": {
+      "Type": "AWS::IAM::User",
+      "Properties": {
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "S3Access",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Action": [
+                    "s3:ListBucket",
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:DeleteObject"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "", [ "arn:aws:s3:::", {
+                          "Ref": "S3FilesBucket"
+                        } , "/*" ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "", [ "arn:aws:s3:::", {
+                          "Ref": "S3FilesBucket"
+                        } ]
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "region": {
+      "Value": {
+        "Ref": "AWS::Region"
+      }
+    },
+    "filesBucket": {
+      "Value": {
+        "Ref": "S3FilesBucket"
+      }
+    },
+    "user": {
+      "Value": {
+        "Ref": "User"
+      }
+    }
+
+  }
+}
