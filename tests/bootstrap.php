@@ -16,5 +16,5 @@ define('TEST_STORAGE_API_URL', getenv('TEST_STORAGE_API_URL') ?: 'https://connec
 define('TEST_STORAGE_API_TOKEN', getenv('TEST_STORAGE_API_TOKEN'));
 define('TEST_AWS_ACCESS_KEY_ID', getenv('TEST_AWS_ACCESS_KEY_ID'));
 define('TEST_AWS_SECRET_ACCESS_KEY', getenv('TEST_AWS_SECRET_ACCESS_KEY'));
-define('TEST_S3_BUCKET', getenv('TEST_BACKUP_S3_BUCKET'));
 define('TEST_AWS_REGION', getenv('TEST_AWS_REGION') ?: 'us-east-1');
+define('TEST_AWS_S3_BUCKET', getenv('TEST_AWS_S3_BUCKET'));

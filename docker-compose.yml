@@ -6,15 +6,14 @@ services:
     build: .
     volumes:
       - .:/code
-      - ./tmp:/tmp
     working_dir: /code
-    command: php ./vendor/bin/phpunit'
+    command: ./vendor/bin/phpunit --debug
     tty: true
     stdin_open: true
     environment:
-      - TEST_BACKUP_AWS_ACCESS_KEY_ID
-      - TEST_BACKUP_AWS_SECRET_ACCESS_KEY
-      - TEST_AWS_REGION
-      - TEST_BACKUP_S3_BUCKET
-      - TEST_STORAGE_API_TOKEN
       - TEST_STORAGE_API_URL
+      - TEST_STORAGE_API_TOKEN
+      - TEST_AWS_ACCESS_KEY_ID
+      - TEST_AWS_SECRET_ACCESS_KEY
+      - TEST_AWS_REGION
+      - TEST_AWS_S3_BUCKET

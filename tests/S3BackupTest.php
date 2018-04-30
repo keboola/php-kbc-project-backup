@@ -74,14 +74,14 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backup(TEST_S3_BUCKET, 'backup');
+        $backup->backup(TEST_AWS_S3_BUCKET, 'backup');
 
         $temp = new Temp();
         $temp->initRunFolder();
 
         $targetFile = $temp->createTmpFile('configurations.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/configurations.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -111,7 +111,7 @@ class S3BackupTest extends TestCase
         $configurationId = $targetConfiguration['id'];
         $targetFile = $temp->createTmpFile('configurations.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/configurations/transformation/' . $configurationId . '.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -167,14 +167,14 @@ class S3BackupTest extends TestCase
         }
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(TEST_S3_BUCKET, 'backup', false);
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', false);
 
         $temp = new Temp();
         $temp->initRunFolder();
 
         $targetFile = $temp->createTmpFile($config->getConfigurationId() . 'configurations.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/configurations/transformation/' . $config->getConfigurationId() . '.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -252,14 +252,14 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(TEST_S3_BUCKET, 'backup', false); //@FIXME maybe tests versions too
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', false); //@FIXME maybe tests versions too
 
         $temp = new Temp();
         $temp->initRunFolder();
 
         $targetFile = $temp->createTmpFile('configurations.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/configurations.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -273,7 +273,7 @@ class S3BackupTest extends TestCase
         $configurationId = $targetConfiguration->id;
         $targetFile = $temp->createTmpFile($configurationId . 'configurations.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/configurations/transformation/' . $configurationId . '.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -299,14 +299,14 @@ class S3BackupTest extends TestCase
         $this->sapiClient->linkBucket('linked', 'in', $projectId, $bucketId);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupTablesMetadata(TEST_S3_BUCKET, 'backup');
+        $backup->backupTablesMetadata(TEST_AWS_S3_BUCKET, 'backup');
 
         $temp = new Temp();
         $temp->initRunFolder();
 
         $targetFile = $temp->createTmpFile('buckets.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/buckets.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -317,7 +317,7 @@ class S3BackupTest extends TestCase
 
         $targetFile = $temp->createTmpFile('tables.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/tables.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -331,7 +331,7 @@ class S3BackupTest extends TestCase
     public function testExecuteMetadata(): void
     {
         $this->sapiClient->createBucket("main", StorageApi::STAGE_IN);
-        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/../data/sample.csv"));
+        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/data/sample.csv"));
 
         $metadata = new Metadata($this->sapiClient);
         $metadata->postBucketMetadata("in.c-main", "system", [
@@ -354,14 +354,14 @@ class S3BackupTest extends TestCase
         ]);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupTablesMetadata(TEST_S3_BUCKET, 'backup');
+        $backup->backupTablesMetadata(TEST_AWS_S3_BUCKET, 'backup');
 
         $temp = new Temp();
         $temp->initRunFolder();
 
         $targetFile = $temp->createTmpFile('buckets.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/buckets.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -372,7 +372,7 @@ class S3BackupTest extends TestCase
 
         $targetFile = $temp->createTmpFile('tables.json');
         $this->s3Client->getObject([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
             'Key' => 'backup/tables.json',
             'SaveAs' => (string) $targetFile,
         ]);
@@ -386,16 +386,16 @@ class S3BackupTest extends TestCase
     public function testExecuteWithoutPath(): void
     {
         $this->sapiClient->createBucket("main", StorageApi::STAGE_IN);
-        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/../data/sample.csv"));
+        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/data/sample.csv"));
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupTablesMetadata(TEST_S3_BUCKET, null);
-        $backup->backupConfigs(TEST_S3_BUCKET, null, false);
+        $backup->backupTablesMetadata(TEST_AWS_S3_BUCKET, null);
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, null, false);
 
         $keys = array_map(function ($key) {
             return $key["Key"];
         }, $this->s3Client->listObjects([
-            'Bucket' => TEST_S3_BUCKET,
+            'Bucket' => TEST_AWS_S3_BUCKET,
         ])->toArray()["Contents"]);
 
         self::assertTrue(in_array('buckets.json', $keys));
@@ -427,7 +427,7 @@ class S3BackupTest extends TestCase
 
     private function cleanupS3()
     {
-        $keys = $this->s3Client->listObjects(['Bucket' => TEST_S3_BUCKET])->toArray();
+        $keys = $this->s3Client->listObjects(['Bucket' => TEST_AWS_S3_BUCKET])->toArray();
         if (isset($keys['Contents'])) {
             $keys = $keys['Contents'];
         } else {
@@ -442,7 +442,7 @@ class S3BackupTest extends TestCase
         if (count($deleteObjects) > 0) {
             $this->s3Client->deleteObjects(
                 [
-                    'Bucket' => TEST_S3_BUCKET,
+                    'Bucket' => TEST_AWS_S3_BUCKET,
                     'Delete' => ['Objects' => $deleteObjects],
                 ]
             );
