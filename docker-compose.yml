@@ -7,7 +7,11 @@ services:
     volumes:
       - .:/code
     working_dir: /code
-    command: ./vendor/bin/phpunit --debug
+    command: >
+       sh -c '
+       composer install
+       && ./vendor/bin/phpunit
+       '
     tty: true
     stdin_open: true
     environment:
