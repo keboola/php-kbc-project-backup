@@ -2,6 +2,7 @@
 namespace Keboola\ProjectBackup;
 
 use Aws\S3\S3Client;
+use Keboola\ProjectBackup\Options\S3BackupOptions;
 use Keboola\StorageApi\Client AS StorageApi;
 use Keboola\StorageApi\HandlerStack;
 use Keboola\StorageApi\Options\GetFileOptions;
@@ -12,8 +13,6 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class S3Backup
 {
-    private const CONFIGS_VERSION_LIMIT = 2;
-
     /**
      * @var StorageApi
      */
@@ -45,33 +44,27 @@ class S3Backup
         }
     }
 
-    public function backup(string $targetBucket, string $targetBasePath = null): void
+    public function backup(S3BackupOptions $options): void
     {
-        $onlyStructure = false;
-        $includeVersions = true;
+        $tables = $this->backupTablesMetadata($options->getTargetBucket(), $options->getTargetBasePath());
 
-        //@FIXME backup methods cannot return void
-
-        $tables = $this->backupTablesMetadata($targetBucket, $targetBasePath);
-        usort($tables, function ($a, $b) {
-            return strcmp($a["id"], $b["id"]);
-        });
-
-        //@FIXME resolve counter? (backup stats?) custom line
-        foreach (array_values($tables) as $i => $table) {
-            if ($onlyStructure && $table['bucket']['stage'] !== 'sys') {
-                $this->logger->warning(sprintf('Skipping table %s (sys bucket)', $table['id']));
-            } elseif (!$table['isAlias']) {
-                $this->backupTable($table['id'], $targetBucket, $targetBasePath);
-            } else {
-                $this->logger->warning(sprintf('Skipping table %s (alias)', $table['id']));
+        if (!$options->getExportOnlyStructure()) {
+            $tablesCount = count($tables);
+            foreach ($tables as $i => $table) {
+                $this->logger->info(sprintf('Table %d/%d', $i + 1, $tablesCount));
+                $this->backupTable($table['id'], $options->getTargetBucket(), $options->getTargetBasePath());
             }
         }
 
-        $this->backupConfigs($targetBucket, $targetBasePath, $includeVersions);
+        $this->backupConfigs($options->getTargetBucket(), $options->getTargetBasePath(), $options->getExportConfigVersionsLimit());
     }
 
 
+    /**
+     * @param string $targetBucket
+     * @param string|null $targetBasePath
+     * @return array all tables and table aliases IDs
+     */
     public function backupTablesMetadata(string $targetBucket, string $targetBasePath = null): array
     {
         $targetBasePath = $this->trimTargetBasePath($targetBasePath);
@@ -94,12 +87,28 @@ class S3Backup
             'Body' => json_encode($tables),
         ]);
 
-        return $tables;
         return array_map(function ($row) { return $row['id']; }, $tables);
     }
 
+    /**
+     * @param string $tableId
+     * @param string $targetBucket
+     * @param string|null $targetBasePath
+     */
     public function backupTable(string $tableId, string $targetBucket, string $targetBasePath = null): void
     {
+        $table = $this->sapiClient->getTable($tableId);
+
+        if ($table['bucket']['stage'] === 'sys') {
+            $this->logger->warning(sprintf('Skipping table %s (sys bucket)', $table['id']));
+            return;
+        }
+
+        if ($table['isAlias']) {
+            $this->logger->warning(sprintf('Skipping table %s (alias)', $table['id']));
+            return;
+        }
+
         $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $this->logger->info(sprintf('Exporting table %s', $tableId));
 
@@ -110,8 +119,6 @@ class S3Backup
             'gzip' => true,
         ]);
         $fileInfo = $this->sapiClient->getFile($fileId["file"]["id"], (new GetFileOptions())->setFederationToken(true));
-
-        $this->logger->info('region' . $fileInfo["region"]); //@FIXME remove
 
         // Initialize S3Client with credentials from Storage API
         $s3Client = new S3Client([
@@ -173,11 +180,9 @@ class S3Backup
         }
     }
 
-
-    public function backupConfigs($targetBucket, $targetBasePath = null, $saveVersions): void
+    public function backupConfigs($targetBucket, $targetBasePath = null, int $versionsLimit = 0): void
     {
         $targetBasePath = $this->trimTargetBasePath($targetBasePath);
-        $limit = self::CONFIGS_VERSION_LIMIT;
         $this->logger->info('Exporting configurations');
 
         $tmp = new Temp();
@@ -205,32 +210,32 @@ class S3Backup
             $this->logger->info(sprintf('Exporting %s configurations', $component->id));
 
             foreach ($component->configurations as $configuration) {
-                if ($saveVersions) {
+                if ($versionsLimit) {
                     $offset = 0;
                     $versions = [];
                     do {
                         $url = "storage/components/{$component->id}/configs/{$configuration->id}/versions";
                         $url .= "?include=name,description,configuration,state";
-                        $url .= "&limit={$limit}&offset={$offset}";
+                        $url .= "&limit={$versionsLimit}&offset={$offset}";
                         $this->sapiClient->apiGet($url, $versionsFile->getPathname());
                         $versionsTmp = json_decode(file_get_contents($versionsFile->getPathname()));
                         $versions = array_merge($versions, $versionsTmp);
-                        $offset = $offset + $limit;
+                        $offset = $offset + $versionsLimit;
                     } while (count($versionsTmp) > 0);
                     $configuration->_versions = $versions;
                 }
-                if ($saveVersions) {
+                if ($versionsLimit) {
                     foreach ($configuration->rows as &$row) {
                         $offset = 0;
                         $versions = [];
                         do {
                             $url = "storage/components/{$component->id}/configs/{$configuration->id}/rows/{$row->id}/versions";
                             $url .= "?include=configuration";
-                            $url .= "&limit={$limit}&offset={$offset}";
+                            $url .= "&limit={$versionsLimit}&offset={$offset}";
                             $this->sapiClient->apiGet($url, $versionsFile->getPathname());
                             $versionsTmp = json_decode(file_get_contents($versionsFile->getPathname()));
                             $versions = array_merge($versions, $versionsTmp);
-                            $offset = $offset + $limit;
+                            $offset = $offset + $versionsLimit;
                         } while (count($versionsTmp) > 0);
                         $row->_versions = $versions;
                     }

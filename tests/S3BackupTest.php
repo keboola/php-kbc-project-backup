@@ -4,6 +4,7 @@ namespace Keboola\ProjectBackup\Tests;
 
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
+use Keboola\ProjectBackup\Options\S3BackupOptions;
 use Keboola\StorageApi\Client as StorageApi;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\Metadata;
@@ -74,7 +75,11 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backup(TEST_AWS_S3_BUCKET, 'backup');
+
+        $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
+        $options->setTargetBasePath('backup');
+
+        $backup->backup($options);
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -167,7 +172,7 @@ class S3BackupTest extends TestCase
         }
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', false);
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup');
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -252,7 +257,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', false); //@FIXME maybe tests versions too
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', 0); //@FIXME maybe tests versions too
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -283,6 +288,9 @@ class S3BackupTest extends TestCase
         self::assertEquals(new \stdClass(), $targetConfiguration->rows[0]->configuration->dummyObject);
         self::assertEquals([], $targetConfiguration->rows[0]->configuration->dummyArray);
     }
+
+    //@FIXME backup table test
+    //@FIXME backup config versions
 
     public function testExecuteLinkedBuckets(): void
     {
@@ -390,7 +398,7 @@ class S3BackupTest extends TestCase
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
         $backup->backupTablesMetadata(TEST_AWS_S3_BUCKET, null);
-        $backup->backupConfigs(TEST_AWS_S3_BUCKET, null, false);
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, null);
 
         $keys = array_map(function ($key) {
             return $key["Key"];
