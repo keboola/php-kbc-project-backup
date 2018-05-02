@@ -9,7 +9,7 @@ class S3BackupOptions
 
     private $onlyStructure = false;
 
-    private $configVersionsLimit = 2;
+    private $configVersions = true;
 
     public function __construct($targetBucket)
     {
@@ -43,15 +43,15 @@ class S3BackupOptions
         return $this->onlyStructure;
     }
 
-    public function setExportConfigVersionsLimit(int $value = 2)
+    public function setExportConfigVersions(bool $value)
     {
-        $this->configVersionsLimit = $value;
+        $this->configVersions = $value;
         return $this;
     }
 
-    public function getExportConfigVersionsLimit()
+    public function getExportConfigVersions()
     {
-        return $this->configVersionsLimit;
+        return $this->configVersions;
     }
 
 }

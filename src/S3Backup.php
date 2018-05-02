@@ -13,6 +13,8 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class S3Backup
 {
+    private const CONFIGURATION_PAGING_LIMIT = 2;
+
     /**
      * @var StorageApi
      */
@@ -56,7 +58,7 @@ class S3Backup
             }
         }
 
-        $this->backupConfigs($options->getTargetBucket(), $options->getTargetBasePath(), $options->getExportConfigVersionsLimit());
+        $this->backupConfigs($options->getTargetBucket(), $options->getTargetBasePath(), $options->getExportConfigVersions());
     }
 
 
@@ -180,7 +182,7 @@ class S3Backup
         }
     }
 
-    public function backupConfigs($targetBucket, $targetBasePath = null, int $versionsLimit = 0): void
+    public function backupConfigs($targetBucket, $targetBasePath = null, bool $includeVersions = true): void
     {
         $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $this->logger->info('Exporting configurations');
@@ -206,36 +208,39 @@ class S3Backup
         $this->sapiClient->apiGet($url, $configurationsFile->getPathname());
         $configurations = json_decode(file_get_contents($configurationsFile->getPathname()));
 
+        $limit = self::CONFIGURATION_PAGING_LIMIT;
+
         foreach ($configurations as $component) {
             $this->logger->info(sprintf('Exporting %s configurations', $component->id));
 
             foreach ($component->configurations as $configuration) {
-                if ($versionsLimit) {
+                if ($includeVersions) {
                     $offset = 0;
                     $versions = [];
                     do {
                         $url = "storage/components/{$component->id}/configs/{$configuration->id}/versions";
                         $url .= "?include=name,description,configuration,state";
-                        $url .= "&limit={$versionsLimit}&offset={$offset}";
+                        $url .= "&limit={$limit}&offset={$offset}";
                         $this->sapiClient->apiGet($url, $versionsFile->getPathname());
                         $versionsTmp = json_decode(file_get_contents($versionsFile->getPathname()));
+
                         $versions = array_merge($versions, $versionsTmp);
-                        $offset = $offset + $versionsLimit;
+                        $offset = $offset + $limit;
                     } while (count($versionsTmp) > 0);
                     $configuration->_versions = $versions;
                 }
-                if ($versionsLimit) {
+                if ($includeVersions) {
                     foreach ($configuration->rows as &$row) {
                         $offset = 0;
                         $versions = [];
                         do {
                             $url = "storage/components/{$component->id}/configs/{$configuration->id}/rows/{$row->id}/versions";
                             $url .= "?include=configuration";
-                            $url .= "&limit={$versionsLimit}&offset={$offset}";
+                            $url .= "&limit={$limit}&offset={$offset}";
                             $this->sapiClient->apiGet($url, $versionsFile->getPathname());
                             $versionsTmp = json_decode(file_get_contents($versionsFile->getPathname()));
                             $versions = array_merge($versions, $versionsTmp);
-                            $offset = $offset + $versionsLimit;
+                            $offset = $offset + $limit;
                         } while (count($versionsTmp) > 0);
                         $row->_versions = $versions;
                     }

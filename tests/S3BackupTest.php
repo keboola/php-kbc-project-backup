@@ -78,7 +78,7 @@ class S3BackupTest extends TestCase
 
         $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
         $options->setTargetBasePath('backup');
-        $options->setExportConfigVersionsLimit(0);
+        $options->setExportConfigVersions(false);
 
         $backup->backup($options);
 
@@ -133,6 +133,96 @@ class S3BackupTest extends TestCase
         self::assertEquals('bar', $targetConfiguration['rows'][1]['configuration']['queries'][0]);
         self::assertArrayNotHasKey('_versions', $targetConfiguration);
         self::assertArrayNotHasKey('_versions', $targetConfiguration['rows'][0]);
+    }
+
+    public function testExecuteVersions(): void
+    {
+        $component = new Components($this->sapiClient);
+
+        $config = new Configuration();
+        $config->setComponentId('transformation');
+        $config->setDescription('Test Configuration');
+        $config->setConfigurationId('sapi-php-test');
+        $config->setName('test-configuration');
+        $configData = $component->addConfiguration($config);
+        $config->setConfigurationId($configData['id']);
+
+        $row = new ConfigurationRow($config);
+        $row->setChangeDescription('Row 1');
+        $row->setConfiguration(
+            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']]
+        );
+        $component->addConfigurationRow($row);
+
+        $row = new ConfigurationRow($config);
+        $row->setChangeDescription('Row 2');
+        $row->setConfiguration(
+            ['name' => 'test 2', 'backend' => 'docker', 'type' => 'r', 'queries' => ['bar']]
+        );
+        $component->addConfigurationRow($row);
+
+        $backup = new S3Backup($this->sapiClient, $this->s3Client);
+
+        $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
+        $options->setTargetBasePath('backup');
+        $options->setExportConfigVersions(true);
+
+        $backup->backup($options);
+
+        $temp = new Temp();
+        $temp->initRunFolder();
+
+        $targetFile = $temp->createTmpFile('configurations.json');
+        $this->s3Client->getObject([
+            'Bucket' => TEST_AWS_S3_BUCKET,
+            'Key' => 'backup/configurations.json',
+            'SaveAs' => (string) $targetFile,
+        ]);
+
+        $targetContents = file_get_contents($targetFile);
+
+        $targetData = json_decode($targetContents, true);
+        $targetComponent = [];
+        foreach ($targetData as $component) {
+            if ($component['id'] == 'transformation') {
+                $targetComponent = $component;
+                break;
+            }
+        }
+        self::assertGreaterThan(0, count($targetComponent));
+
+        $targetConfiguration = [];
+        foreach ($targetComponent['configurations'] as $configuration) {
+            if ($configuration['name'] == 'test-configuration') {
+                $targetConfiguration = $configuration;
+            }
+        }
+        self::assertGreaterThan(0, count($targetConfiguration));
+        self::assertEquals('Test Configuration', $targetConfiguration['description']);
+        self::assertArrayNotHasKey('rows', $targetConfiguration);
+
+        $configurationId = $targetConfiguration['id'];
+        $targetFile = $temp->createTmpFile('configurations.json');
+        $this->s3Client->getObject([
+            'Bucket' => TEST_AWS_S3_BUCKET,
+            'Key' => 'backup/configurations/transformation/' . $configurationId . '.json',
+            'SaveAs' => (string) $targetFile,
+        ]);
+        $targetContents = file_get_contents($targetFile);
+        $targetConfiguration = json_decode($targetContents, true);
+
+        self::assertGreaterThan(0, count($targetConfiguration));
+        self::assertEquals(3, $targetConfiguration['version']);
+        self::assertEquals('test-configuration', $targetConfiguration['name']);
+        self::assertEquals('Test Configuration', $targetConfiguration['description']);
+        self::assertArrayHasKey('rows', $targetConfiguration);
+        self::assertEquals(2, count($targetConfiguration['rows']));
+        self::assertEquals('foo', $targetConfiguration['rows'][0]['configuration']['queries'][0]);
+        self::assertEquals('bar', $targetConfiguration['rows'][1]['configuration']['queries'][0]);
+        self::assertArrayHasKey('_versions', $targetConfiguration);
+        self::assertEquals(3, count($targetConfiguration['_versions']));
+        self::assertArrayHasKey('_versions', $targetConfiguration['rows'][0]);
+        self::assertEquals(1, count($targetConfiguration['rows'][0]['_versions']));
     }
 
     /**
@@ -259,7 +349,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', 0); //@FIXME maybe tests versions too
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', false);
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -291,8 +381,7 @@ class S3BackupTest extends TestCase
         self::assertEquals([], $targetConfiguration->rows[0]->configuration->dummyArray);
     }
 
-    //@FIXME backup table test
-    //@FIXME backup config versions
+    //@FIXME backup table skip tests
 
     public function testExecuteLinkedBuckets(): void
     {
