@@ -7,7 +7,7 @@
     }
   ],
   "require": {
-    "keboola/php-temp": "^0.1",
+    "keboola/php-temp": "^1.0.0",
     "keboola/storage-api-client": "^10.1.1",
     "monolog/monolog": "^1.23"
   },
