@@ -147,7 +147,7 @@ class S3Backup
             foreach ($manifest["entries"] as $i => $part) {
                 $fileKey = substr($part["url"], strpos($part["url"], '/', 5) + 1);
                 $filePath = $tmpFilePath . '_' . md5(str_replace('/', '_', $fileKey));
-                $this->s3Client->getObject(array(
+                $s3Client->getObject(array(
                     'Bucket' => $fileInfo["s3Path"]["bucket"],
                     'Key' => $fileKey,
                     'SaveAs' => $filePath
