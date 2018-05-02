@@ -17,6 +17,10 @@ composer require keboola/php-storage-api-backup
 TODO
 
 
+### Data Structure
+
+TODO
+
 ## Development
 
 Clone github repository and build Docker container 
@@ -39,7 +43,7 @@ TEST_AWS_S3_BUCKET=
 ```
 
 - `TEST_STORAGE_API_*` variables are from the project you want to backup
-- `TEST_AWS_*` variables are from the S3 bucket the backup will be stored to (Use [aws-cf-template.json](./aws-cf-template.json) CloudFormation stack template to create all required AWS resources)
+- `TEST_AWS_*` variables are from the S3 bucket the backup will be stored to _(Use [aws-cf-template.json](./aws-cf-template.json) CloudFormation stack template to create all required AWS resources)_
 
 
 ```bash
