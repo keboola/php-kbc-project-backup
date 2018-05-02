@@ -78,6 +78,7 @@ class S3BackupTest extends TestCase
 
         $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
         $options->setTargetBasePath('backup');
+        $options->setExportConfigVersionsLimit(0);
 
         $backup->backup($options);
 
@@ -111,7 +112,7 @@ class S3BackupTest extends TestCase
         }
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('Test Configuration', $targetConfiguration['description']);
-        self::assertNotContains('rows', $targetConfiguration);
+        self::assertArrayNotHasKey('rows', $targetConfiguration);
 
         $configurationId = $targetConfiguration['id'];
         $targetFile = $temp->createTmpFile('configurations.json');
@@ -122,6 +123,7 @@ class S3BackupTest extends TestCase
         ]);
         $targetContents = file_get_contents($targetFile);
         $targetConfiguration = json_decode($targetContents, true);
+
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('test-configuration', $targetConfiguration['name']);
         self::assertEquals('Test Configuration', $targetConfiguration['description']);
@@ -129,8 +131,8 @@ class S3BackupTest extends TestCase
         self::assertEquals(2, count($targetConfiguration['rows']));
         self::assertEquals('foo', $targetConfiguration['rows'][0]['configuration']['queries'][0]);
         self::assertEquals('bar', $targetConfiguration['rows'][1]['configuration']['queries'][0]);
-        self::assertNotContains('versions', $targetConfiguration);
-        self::assertNotContains('versions', $targetConfiguration['rows'][0]);
+        self::assertArrayNotHasKey('_versions', $targetConfiguration);
+        self::assertArrayNotHasKey('_versions', $targetConfiguration['rows'][0]);
     }
 
     /**
