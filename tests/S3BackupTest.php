@@ -420,6 +420,9 @@ class S3BackupTest extends TestCase
         foreach ($components->listComponents() as $component) {
             foreach ($component['configurations'] as $configuration) {
                 $components->deleteConfiguration($component['id'], $configuration['id']);
+
+                // delete configuration from trash
+                $components->deleteConfiguration($component['id'], $configuration['id']);
             }
         }
 
