@@ -2,7 +2,6 @@
 namespace Keboola\ProjectBackup;
 
 use Aws\S3\S3Client;
-use Keboola\ProjectBackup\Options\S3BackupOptions;
 use Keboola\StorageApi\Client AS StorageApi;
 use Keboola\StorageApi\HandlerStack;
 use Keboola\StorageApi\Options\GetFileOptions;
@@ -46,28 +45,11 @@ class S3Backup
         }
     }
 
-    public function backup(S3BackupOptions $options): void
-    {
-        $tables = $this->backupTablesMetadata($options->getTargetBucket(), $options->getTargetBasePath());
-
-        if (!$options->getExportOnlyStructure()) {
-            $tablesCount = count($tables);
-            foreach ($tables as $i => $table) {
-                $this->logger->info(sprintf('Table %d/%d', $i + 1, $tablesCount));
-                $this->backupTable($table['id'], $options->getTargetBucket(), $options->getTargetBasePath());
-            }
-        }
-
-        $this->backupConfigs($options->getTargetBucket(), $options->getTargetBasePath(), $options->getExportConfigVersions());
-    }
-
-
     /**
      * @param string $targetBucket
      * @param string|null $targetBasePath
-     * @return array all tables and table aliases IDs
      */
-    public function backupTablesMetadata(string $targetBucket, string $targetBasePath = null): array
+    public function backupTablesMetadata(string $targetBucket, string $targetBasePath = null): void
     {
         $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $this->logger->info('Exporting buckets');
@@ -88,8 +70,6 @@ class S3Backup
             'Key' => $targetBasePath . 'tables.json',
             'Body' => json_encode($tables),
         ]);
-
-        return array_map(function ($row) { return $row['id']; }, $tables);
     }
 
     /**

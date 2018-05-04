@@ -4,7 +4,6 @@ namespace Keboola\ProjectBackup\Tests;
 
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
-use Keboola\ProjectBackup\Options\S3BackupOptions;
 use Keboola\StorageApi\Client as StorageApi;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\Metadata;
@@ -75,12 +74,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-
-        $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
-        $options->setTargetBasePath('backup');
-        $options->setExportConfigVersions(false);
-
-        $backup->backup($options);
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', false);
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -162,12 +156,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-
-        $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
-        $options->setTargetBasePath('backup');
-        $options->setExportConfigVersions(true);
-
-        $backup->backup($options);
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', true);
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -223,61 +212,6 @@ class S3BackupTest extends TestCase
         self::assertEquals(3, count($targetConfiguration['_versions']));
         self::assertArrayHasKey('_versions', $targetConfiguration['rows'][0]);
         self::assertEquals(1, count($targetConfiguration['rows'][0]['_versions']));
-    }
-
-
-    public function testExportStructureWithSysTables(): void
-    {
-        $client = $this->sapiClient;
-
-        $client->createBucket("main", StorageApi::STAGE_SYS);
-        $client->createTable("sys.c-main", "sample", new CsvFile(__DIR__ . "/data/sample.csv"));
-
-        $client->createBucket("main", StorageApi::STAGE_IN);
-        $client->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/data/sample.csv"));
-
-        $backup = new S3Backup($this->sapiClient, $this->s3Client);
-
-        $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
-        $options->setTargetBasePath('backup');
-        $options->setExportOnlyStructure(true);
-
-        $backup->backup($options);
-
-        $temp = new Temp();
-        $temp->initRunFolder();
-
-        $targetFile = $temp->createTmpFile('buckets.json');
-        $this->s3Client->getObject([
-            'Bucket' => TEST_AWS_S3_BUCKET,
-            'Key' => 'backup/buckets.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $buckets = json_decode(file_get_contents($targetFile), true);
-        self::assertCount(2, $buckets);
-
-        $targetFile = $temp->createTmpFile('tables.json');
-        $this->s3Client->getObject([
-            'Bucket' => TEST_AWS_S3_BUCKET,
-            'Key' => 'backup/tables.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $tables = json_decode(file_get_contents($targetFile), true);
-        self::assertCount(2, $tables);
-
-        $keys = array_map(function ($key) {
-            return $key["Key"];
-        }, $this->s3Client->listObjects([
-            'Bucket' => TEST_AWS_S3_BUCKET,
-            'Prefix' => sprintf('backup/%s/%s/%s', StorageApi::STAGE_SYS, 'c-main', 'sample'),
-        ])->toArray()["Contents"]);
-
-        self::assertGreaterThan(0, count($keys));
-
-        self::assertArrayNotHasKey('Contents', $this->s3Client->listObjects([
-            'Bucket' => TEST_AWS_S3_BUCKET,
-            'Prefix' => sprintf('backup/%s/%s/%s', StorageApi::STAGE_IN, 'c-main', 'sample'),
-        ])->toArray());
     }
 
     /**
