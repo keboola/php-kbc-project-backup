@@ -4,7 +4,6 @@ namespace Keboola\ProjectBackup\Tests;
 
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
-use Keboola\ProjectBackup\Options\S3BackupOptions;
 use Keboola\StorageApi\Client as StorageApi;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\Metadata;
@@ -75,12 +74,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-
-        $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
-        $options->setTargetBasePath('backup');
-        $options->setExportConfigVersions(false);
-
-        $backup->backup($options);
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', false);
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -162,12 +156,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-
-        $options = new S3BackupOptions(TEST_AWS_S3_BUCKET);
-        $options->setTargetBasePath('backup');
-        $options->setExportConfigVersions(true);
-
-        $backup->backup($options);
+        $backup->backupConfigs(TEST_AWS_S3_BUCKET, 'backup', true);
 
         $temp = new Temp();
         $temp->initRunFolder();
