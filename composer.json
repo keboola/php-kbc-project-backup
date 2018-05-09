@@ -1,5 +1,6 @@
 {
   "name": "keboola/kbc-project-backup",
+  "license": "MIT",
   "authors": [
     {
       "name": "Erik Zigo",
