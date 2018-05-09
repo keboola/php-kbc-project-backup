@@ -10,7 +10,7 @@ services:
     command: >
        sh -c '
        composer install
-       && ./vendor/bin/phpunit
+       && composer tests
        '
     tty: true
     stdin_open: true
