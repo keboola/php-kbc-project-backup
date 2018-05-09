@@ -1,8 +1,11 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Keboola\ProjectBackup;
 
 use Aws\S3\S3Client;
-use Keboola\StorageApi\Client AS StorageApi;
+use Keboola\StorageApi\Client as StorageApi;
 use Keboola\StorageApi\HandlerStack;
 use Keboola\StorageApi\Options\GetFileOptions;
 use Keboola\Temp\Temp;
@@ -25,31 +28,27 @@ class S3Backup
     private $s3Client;
 
     /**
-     * @var NullLogger
+     * @var LoggerInterface
      */
     private $logger;
 
-    public function __construct(StorageApi $sapiClient, S3Client $s3Client, LoggerInterface $logger = null)
+    public function __construct(StorageApi $sapiClient, S3Client $s3Client, ?LoggerInterface $logger = null)
     {
         $this->sapiClient = $sapiClient;
         $this->s3Client = $s3Client;
         $this->logger = $logger?: new NullLogger();
     }
 
-    private function trimTargetBasePath(string $targetBasePath = null)
+    private function trimTargetBasePath(?string $targetBasePath = null): string
     {
         if (empty($targetBasePath) || $targetBasePath === '/') {
             return '';
         } else {
-            return rtrim($targetBasePath, '/') . '/';
+            return trim($targetBasePath, '/') . '/';
         }
     }
 
-    /**
-     * @param string $targetBucket
-     * @param string|null $targetBasePath
-     */
-    public function backupTablesMetadata(string $targetBucket, string $targetBasePath = null): void
+    public function backupTablesMetadata(string $targetBucket, ?string $targetBasePath = null): void
     {
         $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $this->logger->info('Exporting buckets');
@@ -72,12 +71,7 @@ class S3Backup
         ]);
     }
 
-    /**
-     * @param string $tableId
-     * @param string $targetBucket
-     * @param string|null $targetBasePath
-     */
-    public function backupTable(string $tableId, string $targetBucket, string $targetBasePath = null): void
+    public function backupTable(string $tableId, string $targetBucket, ?string $targetBasePath = null): void
     {
         $table = $this->sapiClient->getTable($tableId);
 
@@ -162,7 +156,7 @@ class S3Backup
         }
     }
 
-    public function backupConfigs($targetBucket, $targetBasePath = null, bool $includeVersions = true): void
+    public function backupConfigs(string $targetBucket, ?string $targetBasePath = null, bool $includeVersions = true): void
     {
         $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $this->logger->info('Exporting configurations');
@@ -175,7 +169,7 @@ class S3Backup
 
         // use raw api call to prevent parsing json - preserve empty JSON objects
         $this->sapiClient->apiGet('storage/components?include=configuration', $configurationsFile->getPathname());
-        $handle = fopen($configurationsFile, "r");
+        $handle = fopen((string) $configurationsFile, "r");
         $this->s3Client->putObject([
             'Bucket' => $targetBucket,
             'Key' => $targetBasePath . 'configurations.json',
@@ -234,5 +228,4 @@ class S3Backup
             }
         }
     }
-
 }
