@@ -115,7 +115,7 @@ class S3Backup
                     'backoffMaxTries' => 10,
                 ]),
             ]);
-            $manifest = json_decode($client->get($fileInfo['url'])->getBody(), true);
+            $manifest = json_decode($client->get($fileInfo['url'])->getBody()->getContents(), true);
 
             // Download all slices
             //@FIXME better temps
