@@ -93,7 +93,7 @@ class S3BackupTest extends TestCase
         $targetData = json_decode($targetContents, true);
         $targetComponent = [];
         foreach ($targetData as $component) {
-            if ($component['id'] == 'transformation') {
+            if ($component['id'] === 'transformation') {
                 $targetComponent = $component;
                 break;
             }
@@ -102,7 +102,7 @@ class S3BackupTest extends TestCase
 
         $targetConfiguration = [];
         foreach ($targetComponent['configurations'] as $configuration) {
-            if ($configuration['name'] == 'test-configuration') {
+            if ($configuration['name'] === 'test-configuration') {
                 $targetConfiguration = $configuration;
             }
         }
@@ -175,7 +175,7 @@ class S3BackupTest extends TestCase
         $targetData = json_decode($targetContents, true);
         $targetComponent = [];
         foreach ($targetData as $component) {
-            if ($component['id'] == 'transformation') {
+            if ($component['id'] === 'transformation') {
                 $targetComponent = $component;
                 break;
             }
@@ -184,7 +184,7 @@ class S3BackupTest extends TestCase
 
         $targetConfiguration = [];
         foreach ($targetComponent['configurations'] as $configuration) {
-            if ($configuration['name'] == 'test-configuration') {
+            if ($configuration['name'] === 'test-configuration') {
                 $targetConfiguration = $configuration;
             }
         }
@@ -304,8 +304,8 @@ class S3BackupTest extends TestCase
         $config->setName('test-configuration');
         $config->setConfiguration(
             [
-                "dummyObject" => new \stdClass(),
-                "dummyArray" => [],
+                'dummyObject' => new \stdClass(),
+                'dummyArray' => [],
             ]
         );
         $configData = $component->addConfiguration($config);
@@ -319,8 +319,8 @@ class S3BackupTest extends TestCase
                 'backend' => 'docker',
                 'type' => 'r',
                 'queries' => ['foo'],
-                "dummyObject" => new \stdClass(),
-                "dummyArray" => [],
+                'dummyObject' => new \stdClass(),
+                'dummyArray' => [],
             ]
         );
         $component->addConfigurationRow($row);
@@ -333,8 +333,8 @@ class S3BackupTest extends TestCase
                 'backend' => 'docker',
                 'type' => 'r',
                 'queries' => ['bar'],
-                "dummyObject" => new \stdClass(),
-                "dummyArray" => [],
+                'dummyObject' => new \stdClass(),
+                'dummyArray' => [],
             ]
         );
         $component->addConfigurationRow($row);
@@ -376,12 +376,12 @@ class S3BackupTest extends TestCase
 
     public function testExecuteLinkedBuckets(): void
     {
-        $bucketId = $this->sapiClient->createBucket("main", StorageApi::STAGE_IN);
+        $bucketId = $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
 
         $this->sapiClient->setBucketAttribute($bucketId, 'key', 'value', true);
         $this->sapiClient->shareBucket($bucketId, ['sharing' => 'organization']);
 
-        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/data/sample.csv"));
+        $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $token = $this->sapiClient->verifyToken();
         $projectId = $token['owner']['id'];
@@ -420,26 +420,26 @@ class S3BackupTest extends TestCase
 
     public function testExecuteMetadata(): void
     {
-        $this->sapiClient->createBucket("main", StorageApi::STAGE_IN);
-        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/data/sample.csv"));
+        $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
+        $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $metadata = new Metadata($this->sapiClient);
-        $metadata->postBucketMetadata("in.c-main", "system", [
+        $metadata->postBucketMetadata('in.c-main', 'system', [
             [
-                "key" => "bucketKey",
-                "value" => "bucketValue",
+                'key' => 'bucketKey',
+                'value' => 'bucketValue',
             ],
         ]);
-        $metadata->postTableMetadata("in.c-main.sample", "system", [
+        $metadata->postTableMetadata('in.c-main.sample', 'system', [
             [
-                "key" => "tableKey",
-                "value" => "tableValue",
+                'key' => 'tableKey',
+                'value' => 'tableValue',
             ],
         ]);
-        $metadata->postColumnMetadata("in.c-main.sample.col1", "system", [
+        $metadata->postColumnMetadata('in.c-main.sample.col1', 'system', [
             [
-                "key" => "columnKey",
-                "value" => "columnValue",
+                'key' => 'columnKey',
+                'value' => 'columnValue',
             ],
         ]);
 
@@ -457,8 +457,8 @@ class S3BackupTest extends TestCase
         ]);
 
         $data = json_decode(file_get_contents((string) $targetFile), true);
-        $this->assertEquals("bucketKey", $data[0]["metadata"][0]["key"]);
-        $this->assertEquals("bucketValue", $data[0]["metadata"][0]["value"]);
+        $this->assertEquals('bucketKey', $data[0]['metadata'][0]['key']);
+        $this->assertEquals('bucketValue', $data[0]['metadata'][0]['value']);
 
         $targetFile = $temp->createTmpFile('tables.json');
         $this->s3Client->getObject([
@@ -467,26 +467,26 @@ class S3BackupTest extends TestCase
             'SaveAs' => (string) $targetFile,
         ]);
         $data = json_decode(file_get_contents((string) $targetFile), true);
-        $this->assertEquals("tableKey", $data[0]["metadata"][0]["key"]);
-        $this->assertEquals("tableValue", $data[0]["metadata"][0]["value"]);
-        $this->assertEquals("columnKey", $data[0]["columnMetadata"]["col1"][0]["key"]);
-        $this->assertEquals("columnValue", $data[0]["columnMetadata"]["col1"][0]["value"]);
+        $this->assertEquals('tableKey', $data[0]['metadata'][0]['key']);
+        $this->assertEquals('tableValue', $data[0]['metadata'][0]['value']);
+        $this->assertEquals('columnKey', $data[0]['columnMetadata']['col1'][0]['key']);
+        $this->assertEquals('columnValue', $data[0]['columnMetadata']['col1'][0]['value']);
     }
 
     public function testExecuteWithoutPath(): void
     {
-        $this->sapiClient->createBucket("main", StorageApi::STAGE_IN);
-        $this->sapiClient->createTable("in.c-main", "sample", new CsvFile(__DIR__ . "/data/sample.csv"));
+        $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
+        $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
         $backup->backupTablesMetadata(getenv('TEST_AWS_S3_BUCKET'), null);
         $backup->backupConfigs(getenv('TEST_AWS_S3_BUCKET'), null);
 
         $keys = array_map(function ($key) {
-            return $key["Key"];
+            return $key['Key'];
         }, $this->s3Client->listObjects([
             'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-        ])->toArray()["Contents"]);
+        ])->toArray()['Contents']);
 
         self::assertTrue(in_array('buckets.json', $keys));
         self::assertTrue(in_array('tables.json', $keys));
@@ -509,12 +509,12 @@ class S3BackupTest extends TestCase
         // drop linked buckets
         foreach ($this->sapiClient->listBuckets() as $bucket) {
             if (isset($bucket['sourceBucket'])) {
-                $this->sapiClient->dropBucket($bucket["id"], ["force" => true]);
+                $this->sapiClient->dropBucket($bucket['id'], ['force' => true]);
             }
         }
 
         foreach ($this->sapiClient->listBuckets() as $bucket) {
-            $this->sapiClient->dropBucket($bucket["id"], ["force" => true]);
+            $this->sapiClient->dropBucket($bucket['id'], ['force' => true]);
         }
     }
 

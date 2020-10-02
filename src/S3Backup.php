@@ -56,7 +56,7 @@ class S3Backup
         $this->s3Client->putObject([
             'Bucket' => $targetBucket,
             'Key' => $targetBasePath . 'buckets.json',
-            'Body' => json_encode($this->sapiClient->listBuckets(["include" => "attributes,metadata"])),
+            'Body' => json_encode($this->sapiClient->listBuckets(['include' => 'attributes,metadata'])),
         ]);
 
         $this->logger->info('Exporting tables');
@@ -94,16 +94,16 @@ class S3Backup
         $fileId = $this->sapiClient->exportTableAsync($tableId, [
             'gzip' => true,
         ]);
-        $fileInfo = $this->sapiClient->getFile($fileId["file"]["id"], (new GetFileOptions())->setFederationToken(true));
+        $fileInfo = $this->sapiClient->getFile($fileId['file']['id'], (new GetFileOptions())->setFederationToken(true));
 
         // Initialize S3Client with credentials from Storage API
         $s3Client = new S3Client([
-            "version" => "latest",
-            "region" => $fileInfo["region"],
-            "credentials" => [
-                "key" => $fileInfo["credentials"]["AccessKeyId"],
-                "secret" => $fileInfo["credentials"]["SecretAccessKey"],
-                "token" => $fileInfo["credentials"]["SessionToken"],
+            'version' => 'latest',
+            'region' => $fileInfo['region'],
+            'credentials' => [
+                'key' => $fileInfo['credentials']['AccessKeyId'],
+                'secret' => $fileInfo['credentials']['SecretAccessKey'],
+                'token' => $fileInfo['credentials']['SessionToken'],
             ],
         ]);
 
@@ -120,11 +120,11 @@ class S3Backup
             // Download all slices
             //@FIXME better temps
             $tmpFilePath = $tmp->getTmpFolder() . DIRECTORY_SEPARATOR . uniqid('sapi-export-');
-            foreach ($manifest["entries"] as $i => $part) {
-                $fileKey = substr($part["url"], strpos($part["url"], '/', 5) + 1);
+            foreach ($manifest['entries'] as $i => $part) {
+                $fileKey = substr($part['url'], strpos($part['url'], '/', 5) + 1);
                 $filePath = $tmpFilePath . '_' . md5(str_replace('/', '_', $fileKey));
                 $s3Client->getObject(array(
-                    'Bucket' => $fileInfo["s3Path"]["bucket"],
+                    'Bucket' => $fileInfo['s3Path']['bucket'],
                     'Key' => $fileKey,
                     'SaveAs' => $filePath
                 ));
@@ -140,8 +140,8 @@ class S3Backup
         } else {
             $tmpFilePath = $tmp->getTmpFolder() . DIRECTORY_SEPARATOR . uniqid('table');
             $s3Client->getObject(array(
-                'Bucket' => $fileInfo["s3Path"]["bucket"],
-                'Key' => $fileInfo["s3Path"]["key"],
+                'Bucket' => $fileInfo['s3Path']['bucket'],
+                'Key' => $fileInfo['s3Path']['key'],
                 'SaveAs' => $tmpFilePath
             ));
 
@@ -156,20 +156,23 @@ class S3Backup
         }
     }
 
-    public function backupConfigs(string $targetBucket, ?string $targetBasePath = null, bool $includeVersions = true): void
-    {
+    public function backupConfigs(
+        string $targetBucket,
+        ?string $targetBasePath = null,
+        bool $includeVersions = true
+    ): void {
         $targetBasePath = $this->trimTargetBasePath($targetBasePath);
         $this->logger->info('Exporting configurations');
 
         $tmp = new Temp();
         $tmp->initRunFolder();
 
-        $configurationsFile = $tmp->createFile("configurations.json");
-        $versionsFile = $tmp->createFile("versions.json");
+        $configurationsFile = $tmp->createFile('configurations.json');
+        $versionsFile = $tmp->createFile('versions.json');
 
         // use raw api call to prevent parsing json - preserve empty JSON objects
         $this->sapiClient->apiGet('storage/components?include=configuration', $configurationsFile->getPathname());
-        $handle = fopen((string) $configurationsFile, "r");
+        $handle = fopen((string) $configurationsFile, 'r');
         $this->s3Client->putObject([
             'Bucket' => $targetBucket,
             'Key' => $targetBasePath . 'configurations.json',
@@ -177,8 +180,8 @@ class S3Backup
         ]);
         fclose($handle);
 
-        $url = "storage/components";
-        $url .= "?include=configuration,rows,state";
+        $url = 'storage/components';
+        $url .= '?include=configuration,rows,state';
         $this->sapiClient->apiGet($url, $configurationsFile->getPathname());
         $configurations = json_decode(file_get_contents($configurationsFile->getPathname()));
 
@@ -193,7 +196,7 @@ class S3Backup
                     $versions = [];
                     do {
                         $url = "storage/components/{$component->id}/configs/{$configuration->id}/versions";
-                        $url .= "?include=name,description,configuration,state";
+                        $url .= '?include=name,description,configuration,state';
                         $url .= "&limit={$limit}&offset={$offset}";
                         $this->sapiClient->apiGet($url, $versionsFile->getPathname());
                         $versionsTmp = json_decode(file_get_contents($versionsFile->getPathname()));
@@ -208,8 +211,10 @@ class S3Backup
                         $offset = 0;
                         $versions = [];
                         do {
-                            $url = "storage/components/{$component->id}/configs/{$configuration->id}/rows/{$row->id}/versions";
-                            $url .= "?include=configuration";
+                            $url = "storage/components/{$component->id}";
+                            $url .= "/configs/{$configuration->id}";
+                            $url .= "/rows/{$row->id}/versions";
+                            $url .= '?include=configuration';
                             $url .= "&limit={$limit}&offset={$offset}";
                             $this->sapiClient->apiGet($url, $versionsFile->getPathname());
                             $versionsTmp = json_decode(file_get_contents($versionsFile->getPathname()));
