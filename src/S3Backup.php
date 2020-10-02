@@ -129,12 +129,14 @@ class S3Backup
                     'SaveAs' => $filePath
                 ));
                 $fh = fopen($filePath, 'r');
-                $this->s3Client->putObject([
-                    'Bucket' => $targetBucket,
-                    'Key' => $targetBasePath . str_replace('.', '/', $tableId) . '.part_' . $i . '.csv.gz',
-                    'Body' => $fh,
-                ]);
-                fclose($fh);
+                if ($fh) {
+                    $this->s3Client->putObject([
+                        'Bucket' => $targetBucket,
+                        'Key' => $targetBasePath . str_replace('.', '/', $tableId) . '.part_' . $i . '.csv.gz',
+                        'Body' => $fh,
+                    ]);
+                    fclose($fh);
+                }
                 $fs->remove($filePath);
             }
         } else {
@@ -146,12 +148,14 @@ class S3Backup
             ));
 
             $fh = fopen($tmpFilePath, 'r');
-            $this->s3Client->putObject([
-                'Bucket' => $targetBucket,
-                'Key' => $targetBasePath . str_replace('.', '/', $tableId) . '.csv.gz',
-                'Body' => $fh,
-            ]);
-            fclose($fh);
+            if ($fh) {
+                $this->s3Client->putObject([
+                    'Bucket' => $targetBucket,
+                    'Key' => $targetBasePath . str_replace('.', '/', $tableId) . '.csv.gz',
+                    'Body' => $fh,
+                ]);
+                fclose($fh);
+            }
             $fs->remove($tmpFilePath);
         }
     }
@@ -173,17 +177,19 @@ class S3Backup
         // use raw api call to prevent parsing json - preserve empty JSON objects
         $this->sapiClient->apiGet('storage/components?include=configuration', $configurationsFile->getPathname());
         $handle = fopen((string) $configurationsFile, 'r');
-        $this->s3Client->putObject([
-            'Bucket' => $targetBucket,
-            'Key' => $targetBasePath . 'configurations.json',
-            'Body' => $handle,
-        ]);
-        fclose($handle);
+        if ($handle) {
+            $this->s3Client->putObject([
+                'Bucket' => $targetBucket,
+                'Key' => $targetBasePath . 'configurations.json',
+                'Body' => $handle,
+            ]);
+            fclose($handle);
+        }
 
         $url = 'storage/components';
         $url .= '?include=configuration,rows,state';
         $this->sapiClient->apiGet($url, $configurationsFile->getPathname());
-        $configurations = json_decode(file_get_contents($configurationsFile->getPathname()));
+        $configurations = json_decode((string) file_get_contents($configurationsFile->getPathname()));
 
         $limit = self::CONFIGURATION_PAGING_LIMIT;
 
@@ -199,7 +205,7 @@ class S3Backup
                         $url .= '?include=name,description,configuration,state';
                         $url .= "&limit={$limit}&offset={$offset}";
                         $this->sapiClient->apiGet($url, $versionsFile->getPathname());
-                        $versionsTmp = json_decode(file_get_contents($versionsFile->getPathname()));
+                        $versionsTmp = json_decode((string) file_get_contents($versionsFile->getPathname()));
 
                         $versions = array_merge($versions, $versionsTmp);
                         $offset = $offset + $limit;
@@ -217,7 +223,7 @@ class S3Backup
                             $url .= '?include=configuration';
                             $url .= "&limit={$limit}&offset={$offset}";
                             $this->sapiClient->apiGet($url, $versionsFile->getPathname());
-                            $versionsTmp = json_decode(file_get_contents($versionsFile->getPathname()));
+                            $versionsTmp = json_decode((string) file_get_contents($versionsFile->getPathname()));
                             $versions = array_merge($versions, $versionsTmp);
                             $offset = $offset + $limit;
                         } while (count($versionsTmp) > 0);

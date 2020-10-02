@@ -76,7 +76,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(getenv('TEST_AWS_S3_BUCKET'), 'backup', false);
+        $backup->backupConfigs((string) getenv('TEST_AWS_S3_BUCKET'), 'backup', false);
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -90,7 +90,7 @@ class S3BackupTest extends TestCase
 
         $targetContents = file_get_contents((string) $targetFile);
 
-        $targetData = json_decode($targetContents, true);
+        $targetData = json_decode((string) $targetContents, true);
         $targetComponent = [];
         foreach ($targetData as $component) {
             if ($component['id'] === 'transformation') {
@@ -118,7 +118,7 @@ class S3BackupTest extends TestCase
             'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents((string) $targetFile);
-        $targetConfiguration = json_decode($targetContents, true);
+        $targetConfiguration = json_decode((string) $targetContents, true);
 
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('test-configuration', $targetConfiguration['name']);
@@ -158,7 +158,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(getenv('TEST_AWS_S3_BUCKET'), 'backup', true);
+        $backup->backupConfigs((string) getenv('TEST_AWS_S3_BUCKET'), 'backup', true);
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -172,7 +172,7 @@ class S3BackupTest extends TestCase
 
         $targetContents = file_get_contents((string) $targetFile);
 
-        $targetData = json_decode($targetContents, true);
+        $targetData = json_decode((string) $targetContents, true);
         $targetComponent = [];
         foreach ($targetData as $component) {
             if ($component['id'] === 'transformation') {
@@ -200,7 +200,7 @@ class S3BackupTest extends TestCase
             'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents((string) $targetFile);
-        $targetConfiguration = json_decode($targetContents, true);
+        $targetConfiguration = json_decode((string) $targetContents, true);
 
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals(3, $targetConfiguration['version']);
@@ -255,7 +255,7 @@ class S3BackupTest extends TestCase
         }
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(getenv('TEST_AWS_S3_BUCKET'), 'backup');
+        $backup->backupConfigs((string) getenv('TEST_AWS_S3_BUCKET'), 'backup');
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -267,7 +267,7 @@ class S3BackupTest extends TestCase
             'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents((string) $targetFile);
-        $targetConfiguration = json_decode($targetContents, true);
+        $targetConfiguration = json_decode((string) $targetContents, true);
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('test-configuration', $targetConfiguration['name']);
         self::assertEquals('Test Configuration', $targetConfiguration['description']);
@@ -340,7 +340,7 @@ class S3BackupTest extends TestCase
         $component->addConfigurationRow($row);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupConfigs(getenv('TEST_AWS_S3_BUCKET'), 'backup', false);
+        $backup->backupConfigs((string) getenv('TEST_AWS_S3_BUCKET'), 'backup', false);
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -352,7 +352,7 @@ class S3BackupTest extends TestCase
             'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents((string) $targetFile);
-        $targetData = json_decode($targetContents);
+        $targetData = json_decode((string) $targetContents);
         $targetConfiguration = $targetData[0]->configurations[0];
 
         self::assertEquals(new \stdClass(), $targetConfiguration->configuration->dummyObject);
@@ -366,7 +366,7 @@ class S3BackupTest extends TestCase
             'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents((string) $targetFile);
-        $targetConfiguration = json_decode($targetContents);
+        $targetConfiguration = json_decode((string) $targetContents);
 
         self::assertEquals(new \stdClass(), $targetConfiguration->rows[0]->configuration->dummyObject);
         self::assertEquals([], $targetConfiguration->rows[0]->configuration->dummyArray);
@@ -389,7 +389,7 @@ class S3BackupTest extends TestCase
         $this->sapiClient->linkBucket('linked', 'in', $projectId, $bucketId);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupTablesMetadata(getenv('TEST_AWS_S3_BUCKET'), 'backup');
+        $backup->backupTablesMetadata((string) getenv('TEST_AWS_S3_BUCKET'), 'backup');
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -400,7 +400,7 @@ class S3BackupTest extends TestCase
             'Key' => 'backup/buckets.json',
             'SaveAs' => (string) $targetFile,
         ]);
-        $buckets = json_decode(file_get_contents((string) $targetFile), true);
+        $buckets = json_decode((string) file_get_contents((string) $targetFile), true);
 
         self::assertCount(2, $buckets);
         self::assertNotEmpty($buckets[1]['sourceBucket']);
@@ -412,7 +412,7 @@ class S3BackupTest extends TestCase
             'SaveAs' => (string) $targetFile,
         ]);
 
-        $tables = json_decode(file_get_contents((string) $targetFile), true);
+        $tables = json_decode((string) file_get_contents((string) $targetFile), true);
 
         self::assertCount(2, $tables);
         self::assertNotEmpty($tables[1]['sourceTable']);
@@ -444,7 +444,7 @@ class S3BackupTest extends TestCase
         ]);
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupTablesMetadata(getenv('TEST_AWS_S3_BUCKET'), 'backup');
+        $backup->backupTablesMetadata((string) getenv('TEST_AWS_S3_BUCKET'), 'backup');
 
         $temp = new Temp();
         $temp->initRunFolder();
@@ -456,7 +456,7 @@ class S3BackupTest extends TestCase
             'SaveAs' => (string) $targetFile,
         ]);
 
-        $data = json_decode(file_get_contents((string) $targetFile), true);
+        $data = json_decode((string) file_get_contents((string) $targetFile), true);
         $this->assertEquals('bucketKey', $data[0]['metadata'][0]['key']);
         $this->assertEquals('bucketValue', $data[0]['metadata'][0]['value']);
 
@@ -466,7 +466,7 @@ class S3BackupTest extends TestCase
             'Key' => 'backup/tables.json',
             'SaveAs' => (string) $targetFile,
         ]);
-        $data = json_decode(file_get_contents((string) $targetFile), true);
+        $data = json_decode((string) file_get_contents((string) $targetFile), true);
         $this->assertEquals('tableKey', $data[0]['metadata'][0]['key']);
         $this->assertEquals('tableValue', $data[0]['metadata'][0]['value']);
         $this->assertEquals('columnKey', $data[0]['columnMetadata']['col1'][0]['key']);
@@ -479,8 +479,8 @@ class S3BackupTest extends TestCase
         $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $backup = new S3Backup($this->sapiClient, $this->s3Client);
-        $backup->backupTablesMetadata(getenv('TEST_AWS_S3_BUCKET'), null);
-        $backup->backupConfigs(getenv('TEST_AWS_S3_BUCKET'), null);
+        $backup->backupTablesMetadata((string) getenv('TEST_AWS_S3_BUCKET'), null);
+        $backup->backupConfigs((string) getenv('TEST_AWS_S3_BUCKET'), null);
 
         $keys = array_map(function ($key) {
             return $key['Key'];
