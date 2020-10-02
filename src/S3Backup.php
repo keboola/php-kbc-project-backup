@@ -136,6 +136,8 @@ class S3Backup
                         'Body' => $fh,
                     ]);
                     fclose($fh);
+                } else {
+                    throw new \Exception(sprintf('Cannot open file %s', $filePath));
                 }
                 $fs->remove($filePath);
             }
@@ -155,6 +157,8 @@ class S3Backup
                     'Body' => $fh,
                 ]);
                 fclose($fh);
+            } else {
+                throw new \Exception(sprintf('Cannot open file %s', $tmpFilePath));
             }
             $fs->remove($tmpFilePath);
         }
@@ -184,6 +188,8 @@ class S3Backup
                 'Body' => $handle,
             ]);
             fclose($handle);
+        } else {
+            throw new \Exception(sprintf('Cannot open file %s', (string) $configurationsFile));
         }
 
         $url = 'storage/components';
