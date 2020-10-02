@@ -1,5 +1,6 @@
 {
   "name": "keboola/kbc-project-backup",
+  "description": "Backup KBC project",
   "license": "MIT",
   "authors": [
     {
@@ -35,11 +36,17 @@
     "phpcs": "phpcs -n --ignore=vendor --extensions=php .",
     "phpstan": "phpstan analyse ./src ./tests --level=max --no-progress -c phpstan.neon",
     "tests": [
-      "@composer validate --no-check-publish --no-check-all",
+      "@phpunit"
+    ],
+    "build": [
       "@phplint",
       "@phpcs",
       "@phpstan",
-      "phpunit"
+      "@tests"
+    ],
+    "ci": [
+      "@composer validate --no-check-publish --no-check-all",
+      "@build"
     ]
   }
 }
