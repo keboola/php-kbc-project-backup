@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup;
 
 use Aws\S3\S3Client;
+use Keboola\ProjectBackup\Exception\SkipTableException;
 use Keboola\StorageApi\Client as StorageApi;
 use Keboola\StorageApi\HandlerStack;
-use Keboola\StorageApi\Options\GetFileOptions;
 use Keboola\Temp\Temp;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Filesystem\Filesystem;
@@ -44,7 +44,10 @@ class S3Backup extends Backup
         }
     }
 
-    protected function putToStorage(string $name, string $content): void
+    /**
+     * @param resource|string $content
+     */
+    protected function putToStorage(string $name, $content): void
     {
         $this->s3Client->putObject([
             'Bucket' => $this->bucket,
@@ -55,27 +58,14 @@ class S3Backup extends Backup
 
     public function backupTable(string $tableId): void
     {
-        $table = $this->sapiClient->getTable($tableId);
-
-        if ($table['bucket']['stage'] === 'sys') {
-            $this->logger->warning(sprintf('Skipping table %s (sys bucket)', $table['id']));
+        try {
+            $fileInfo = $this->getTableFileInfo($tableId);
+        } catch (SkipTableException $e) {
             return;
         }
-
-        if ($table['isAlias']) {
-            $this->logger->warning(sprintf('Skipping table %s (alias)', $table['id']));
-            return;
-        }
-
-        $this->logger->info(sprintf('Exporting table %s', $tableId));
 
         $tmp = new Temp();
         $tmp->initRunFolder();
-
-        $fileId = $this->sapiClient->exportTableAsync($tableId, [
-            'gzip' => true,
-        ]);
-        $fileInfo = $this->sapiClient->getFile($fileId['file']['id'], (new GetFileOptions())->setFederationToken(true));
 
         // Initialize S3Client with credentials from Storage API
         $s3Client = new S3Client([
@@ -132,11 +122,10 @@ class S3Backup extends Backup
 
             $fh = fopen($tmpFilePath, 'r');
             if ($fh) {
-                $this->s3Client->putObject([
-                    'Bucket' => $this->bucket,
-                    'Key' => $this->path . str_replace('.', '/', $tableId) . '.csv.gz',
-                    'Body' => $fh,
-                ]);
+                $this->putToStorage(
+                    $this->path . str_replace('.', '/', $tableId) . '.csv.gz',
+                    $fh
+                );
                 fclose($fh);
             } else {
                 throw new \Exception(sprintf('Cannot open file %s', $tmpFilePath));

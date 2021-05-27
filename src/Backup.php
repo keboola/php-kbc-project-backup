@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup;
 
 use Exception;
+use Keboola\ProjectBackup\Exception\SkipTableException;
 use Keboola\StorageApi\Client;
+use Keboola\StorageApi\Options\GetFileOptions;
 use Keboola\Temp\Temp;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -27,6 +29,32 @@ abstract class Backup
     abstract protected function putToStorage(string $name, string $content): void;
 
     abstract public function backupTable(string $tableId): void;
+
+    protected function getTableFileInfo(string $tableId): array
+    {
+        $table = $this->sapiClient->getTable($tableId);
+
+        if ($table['bucket']['stage'] === 'sys') {
+            $this->logger->warning(sprintf('Skipping table %s (sys bucket)', $table['id']));
+            throw new SkipTableException();
+        }
+
+        if ($table['isAlias']) {
+            $this->logger->warning(sprintf('Skipping table %s (alias)', $table['id']));
+            throw new SkipTableException();
+        }
+
+        $this->logger->info(sprintf('Exporting table %s', $tableId));
+
+        $fileId = $this->sapiClient->exportTableAsync($tableId, [
+            'gzip' => true,
+        ]);
+
+        return (array) $this->sapiClient->getFile(
+            $fileId['file']['id'],
+            (new GetFileOptions())->setFederationToken(true)
+        );
+    }
 
     public function backupTablesMetadata(): void
     {

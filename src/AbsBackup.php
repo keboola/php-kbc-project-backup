@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup;
 
 use GuzzleHttp\Client;
+use Keboola\ProjectBackup\Exception\SkipTableException;
 use Keboola\StorageApi\Client as StorageApi;
 use Keboola\StorageApi\HandlerStack;
-use Keboola\StorageApi\Options\GetFileOptions;
-use Keboola\Temp\Temp;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
 use Psr\Log\LoggerInterface;
 
@@ -30,7 +29,10 @@ class AbsBackup extends Backup
         parent::__construct($sapiClient, $logger);
     }
 
-    protected function putToStorage(string $name, string $content): void
+    /**
+     * @param resource|string $content
+     */
+    protected function putToStorage(string $name, $content): void
     {
         $this->absClient->createBlockBlob(
             $this->path,
@@ -41,27 +43,11 @@ class AbsBackup extends Backup
 
     public function backupTable(string $tableId): void
     {
-        $table = $this->sapiClient->getTable($tableId);
-
-        if ($table['bucket']['stage'] === 'sys') {
-            $this->logger->warning(sprintf('Skipping table %s (sys bucket)', $table['id']));
+        try {
+            $fileInfo = $this->getTableFileInfo($tableId);
+        } catch (SkipTableException $e) {
             return;
         }
-
-        if ($table['isAlias']) {
-            $this->logger->warning(sprintf('Skipping table %s (alias)', $table['id']));
-            return;
-        }
-
-        $this->logger->info(sprintf('Exporting table %s', $tableId));
-
-        $tmp = new Temp();
-        $tmp->initRunFolder();
-
-        $fileId = $this->sapiClient->exportTableAsync($tableId, [
-            'gzip' => true,
-        ]);
-        $fileInfo = $this->sapiClient->getFile($fileId['file']['id'], (new GetFileOptions())->setFederationToken(true));
 
         // Initialize BlobRestProxy with credentials from Storage API
         $absClient = BlobRestProxy::createBlobService($fileInfo['absCredentials']['SASConnectionString']);
@@ -80,18 +66,16 @@ class AbsBackup extends Backup
                 $partFileInfo = new \SplFileInfo($part['url']);
                 $fileContent = $absClient->getBlob($fileInfo['absPath']['container'], $partFileInfo->getFilename());
 
-                $this->absClient->createBlockBlob(
-                    $this->path,
+                $this->putToStorage(
                     str_replace('.', '/', $tableId) . '.part_' . $i . '.csv.gz',
-                    (string) stream_get_contents($fileContent->getContentStream())
+                    $fileContent->getContentStream()
                 );
             }
         } else {
             $fileContent = $absClient->getBlob($fileInfo['absPath']['container'], $fileInfo['absPath']['name']);
-            $this->absClient->createBlockBlob(
-                $this->path,
+            $this->putToStorage(
                 str_replace('.', '/', $tableId) . '.csv.gz',
-                (string) stream_get_contents($fileContent->getContentStream())
+                $fileContent->getContentStream()
             );
         }
     }
