@@ -13,12 +13,16 @@ set_error_handler(function ($errno, $errstr, $errfile, $errline, array $errconte
 });
 
 $environments = [
-    'TEST_STORAGE_API_URL',
-    'TEST_STORAGE_API_TOKEN',
+    'TEST_AWS_STORAGE_API_URL',
+    'TEST_AWS_STORAGE_API_TOKEN',
+    'TEST_AZURE_STORAGE_API_URL',
+    'TEST_AZURE_STORAGE_API_TOKEN',
     'TEST_AWS_ACCESS_KEY_ID',
     'TEST_AWS_SECRET_ACCESS_KEY',
     'TEST_AWS_REGION',
     'TEST_AWS_S3_BUCKET',
+    'TEST_AZURE_ACCOUNT_NAME',
+    'TEST_AZURE_ACCOUNT_KEY',
 ];
 
 foreach ($environments as $environment) {
