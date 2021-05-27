@@ -522,9 +522,9 @@ class S3BackupTest extends TestCase
             'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
         ])->toArray()['Contents']);
 
-        self::assertTrue(in_array('buckets.json', $keys));
-        self::assertTrue(in_array('tables.json', $keys));
-        self::assertTrue(in_array('configurations.json', $keys));
+        self::assertTrue(in_array('backup/buckets.json', $keys));
+        self::assertTrue(in_array('backup/tables.json', $keys));
+        self::assertTrue(in_array('backup/configurations.json', $keys));
         self::assertCount(3, $keys);
     }
 
