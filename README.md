@@ -42,7 +42,7 @@ TEST_AZURE_CONTAINER_NAME=
 - `TEST_AWS_*` variables are from the S3 bucket the backup will be stored to _(Use [aws-cf-template.json](./aws-cf-template.json) CloudFormation stack template to create all required AWS resources)_
 - `TEST_AZURE_STORAGE_API_*` variables are from the project with Azure Blob storage backend which you want to backup
 - `TEST_AZURE_ACCOUNT_` create new Storage Account in your Azure Subscription
-- `TEST_AZURE_CONTAINER_NAME` create new Container in the Storage account
+- `TEST_AZURE_CONTAINER_NAME` container whhich will be created in your Storage Account
 
 ```bash
 docker-compose run --rm tests
