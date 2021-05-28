@@ -18,15 +18,11 @@ use stdClass;
 
 class S3BackupTest extends TestCase
 {
-    /**
-     * @var StorageApi
-     */
-    private $sapiClient;
+    use CleanupKbcProject;
 
-    /**
-     * @var S3Client
-     */
-    private $s3Client;
+    protected StorageApi $sapiClient;
+
+    private S3Client $s3Client;
 
     public function setUp(): void
     {
@@ -526,30 +522,6 @@ class S3BackupTest extends TestCase
         self::assertTrue(in_array('backup/tables.json', $keys));
         self::assertTrue(in_array('backup/configurations.json', $keys));
         self::assertCount(3, $keys);
-    }
-
-    private function cleanupKbcProject(): void
-    {
-        $components = new Components($this->sapiClient);
-        foreach ($components->listComponents() as $component) {
-            foreach ($component['configurations'] as $configuration) {
-                $components->deleteConfiguration($component['id'], $configuration['id']);
-
-                // delete configuration from trash
-                $components->deleteConfiguration($component['id'], $configuration['id']);
-            }
-        }
-
-        // drop linked buckets
-        foreach ($this->sapiClient->listBuckets() as $bucket) {
-            if (isset($bucket['sourceBucket'])) {
-                $this->sapiClient->dropBucket($bucket['id'], ['force' => true]);
-            }
-        }
-
-        foreach ($this->sapiClient->listBuckets() as $bucket) {
-            $this->sapiClient->dropBucket($bucket['id'], ['force' => true]);
-        }
     }
 
     private function cleanupS3(): void

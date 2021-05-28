@@ -21,7 +21,9 @@ use stdClass;
 
 class AbsBackupTest extends TestCase
 {
-    private Client $sapiClient;
+    use CleanupKbcProject;
+
+    protected Client $sapiClient;
 
     private BlobRestProxy $absClient;
 
@@ -509,30 +511,6 @@ class AbsBackupTest extends TestCase
         self::assertTrue(in_array('tables.json', $listBlobs));
         self::assertTrue(in_array('configurations.json', $listBlobs));
         self::assertCount(3, $listBlobs);
-    }
-
-    private function cleanupKbcProject(): void
-    {
-        $components = new Components($this->sapiClient);
-        foreach ($components->listComponents() as $component) {
-            foreach ($component['configurations'] as $configuration) {
-                $components->deleteConfiguration($component['id'], $configuration['id']);
-
-                // delete configuration from trash
-                $components->deleteConfiguration($component['id'], $configuration['id']);
-            }
-        }
-
-        // drop linked buckets
-        foreach ($this->sapiClient->listBuckets() as $bucket) {
-            if (isset($bucket['sourceBucket'])) {
-                $this->sapiClient->dropBucket($bucket['id'], ['force' => true]);
-            }
-        }
-
-        foreach ($this->sapiClient->listBuckets() as $bucket) {
-            $this->sapiClient->dropBucket($bucket['id'], ['force' => true]);
-        }
     }
 
     private function cleanupAbs(): void
