@@ -25,8 +25,6 @@ class AbsBackupTest extends TestCase
 
     private BlobRestProxy $absClient;
 
-    private const TEST_CONTAINER_NAME = 'project-migration-test-container';
-
     public function setUp(): void
     {
         parent::setUp();
@@ -50,8 +48,8 @@ class AbsBackupTest extends TestCase
         $containers = $this->absClient->listContainers();
         $listContainers = array_map(fn(Container $v) => $v->getName(), $containers->getContainers());
 
-        if (!in_array(self::TEST_CONTAINER_NAME, $listContainers)) {
-            $this->absClient->createContainer(self::TEST_CONTAINER_NAME);
+        if (!in_array((string) getenv('TEST_AZURE_CONTAINER_NAME'), $listContainers)) {
+            $this->absClient->createContainer((string) getenv('TEST_AZURE_CONTAINER_NAME'));
         }
         $this->cleanupAbs();
     }
@@ -85,14 +83,17 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            self::TEST_CONTAINER_NAME
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupConfigs(false);
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetContents = $this->absClient->getBlob(self::TEST_CONTAINER_NAME, 'configurations.json');
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations.json'
+        );
 
         $targetData = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
@@ -119,7 +120,7 @@ class AbsBackupTest extends TestCase
 
         $configurationId = $targetConfiguration['id'];
         $targetContents = $this->absClient->getBlob(
-            self::TEST_CONTAINER_NAME,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
             'configurations/transformation/' . $configurationId . '.json'
         );
 
@@ -168,14 +169,17 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            self::TEST_CONTAINER_NAME
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupConfigs(true);
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetContents = $this->absClient->getBlob(self::TEST_CONTAINER_NAME, 'configurations.json');
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations.json'
+        );
 
         $targetData = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
@@ -202,7 +206,7 @@ class AbsBackupTest extends TestCase
 
         $configurationId = $targetConfiguration['id'];
         $targetContents = $this->absClient->getBlob(
-            self::TEST_CONTAINER_NAME,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
             'configurations/transformation/' . $configurationId . '.json'
         );
         $targetConfiguration = json_decode(
@@ -263,7 +267,7 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            self::TEST_CONTAINER_NAME
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupConfigs();
 
@@ -271,7 +275,7 @@ class AbsBackupTest extends TestCase
         $temp->initRunFolder();
 
         $targetContents = $this->absClient->getBlob(
-            self::TEST_CONTAINER_NAME,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
             'configurations/transformation/' . $config->getConfigurationId() . '.json'
         );
         $targetConfiguration = json_decode(
@@ -352,14 +356,17 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            self::TEST_CONTAINER_NAME
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupConfigs(false);
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetContents = $this->absClient->getBlob(self::TEST_CONTAINER_NAME, 'configurations.json');
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations.json'
+        );
         $targetData = json_decode((string) stream_get_contents($targetContents->getContentStream()));
         $targetConfiguration = $targetData[0]->configurations[0];
 
@@ -368,7 +375,7 @@ class AbsBackupTest extends TestCase
 
         $configurationId = $targetConfiguration->id;
         $targetContents = $this->absClient->getBlob(
-            self::TEST_CONTAINER_NAME,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
             'configurations/transformation/' . $configurationId . '.json'
         );
         $targetConfiguration = json_decode((string) stream_get_contents($targetContents->getContentStream()));
@@ -394,14 +401,14 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            self::TEST_CONTAINER_NAME
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupTablesMetadata();
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetContents = $this->absClient->getBlob(self::TEST_CONTAINER_NAME, 'buckets.json');
+        $targetContents = $this->absClient->getBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), 'buckets.json');
 
         $buckets = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
@@ -411,7 +418,7 @@ class AbsBackupTest extends TestCase
         self::assertCount(2, $buckets);
         self::assertNotEmpty($buckets[1]['sourceBucket']);
 
-        $targetContents = $this->absClient->getBlob(self::TEST_CONTAINER_NAME, 'tables.json');
+        $targetContents = $this->absClient->getBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), 'tables.json');
 
         $tables = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
@@ -450,14 +457,17 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            self::TEST_CONTAINER_NAME
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupTablesMetadata();
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetContents = $this->absClient->getBlob(self::TEST_CONTAINER_NAME, 'buckets.json');
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'buckets.json'
+        );
         $data = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
             true
@@ -465,7 +475,10 @@ class AbsBackupTest extends TestCase
         $this->assertEquals('bucketKey', $data[0]['metadata'][0]['key']);
         $this->assertEquals('bucketValue', $data[0]['metadata'][0]['value']);
 
-        $targetContents = $this->absClient->getBlob(self::TEST_CONTAINER_NAME, 'tables.json');
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'tables.json'
+        );
         $data = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
             true
@@ -484,12 +497,12 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            self::TEST_CONTAINER_NAME
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupTablesMetadata();
         $backup->backupConfigs();
 
-        $blobs = $this->absClient->listBlobs(self::TEST_CONTAINER_NAME);
+        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'));
         $listBlobs = array_map(fn(Blob $v) => $v->getName(), $blobs->getBlobs());
 
         self::assertTrue(in_array('buckets.json', $listBlobs));
@@ -524,10 +537,10 @@ class AbsBackupTest extends TestCase
 
     private function cleanupAbs(): void
     {
-        $blobs = $this->absClient->listBlobs(self::TEST_CONTAINER_NAME);
+        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'));
 
         foreach ($blobs->getBlobs() as $blob) {
-            $this->absClient->deleteBlob(self::TEST_CONTAINER_NAME, $blob->getName());
+            $this->absClient->deleteBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), $blob->getName());
         }
     }
 }
