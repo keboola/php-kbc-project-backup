@@ -5,38 +5,34 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup;
 
 use Aws\S3\S3Client;
+use Keboola\ProjectBackup\Exception\SkipTableException;
 use Keboola\StorageApi\Client as StorageApi;
 use Keboola\StorageApi\HandlerStack;
-use Keboola\StorageApi\Options\GetFileOptions;
 use Keboola\Temp\Temp;
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Component\Filesystem\Filesystem;
 
-class S3Backup
+class S3Backup extends Backup
 {
-    private const CONFIGURATION_PAGING_LIMIT = 2;
 
-    /**
-     * @var StorageApi
-     */
-    private $sapiClient;
+    private S3Client $s3Client;
 
-    /**
-     * @var S3Client
-     */
-    private $s3Client;
+    private string $bucket;
 
-    /**
-     * @var LoggerInterface
-     */
-    private $logger;
+    private string $path;
 
-    public function __construct(StorageApi $sapiClient, S3Client $s3Client, ?LoggerInterface $logger = null)
-    {
-        $this->sapiClient = $sapiClient;
+    public function __construct(
+        StorageApi $sapiClient,
+        S3Client $s3Client,
+        string $bucket,
+        string $path,
+        ?LoggerInterface $logger = null
+    ) {
+        $this->bucket = $bucket;
         $this->s3Client = $s3Client;
-        $this->logger = $logger?: new NullLogger();
+        $this->path = $this->trimTargetBasePath($path);
+
+        parent::__construct($sapiClient, $logger);
     }
 
     private function trimTargetBasePath(?string $targetBasePath = null): string
@@ -48,53 +44,28 @@ class S3Backup
         }
     }
 
-    public function backupTablesMetadata(string $targetBucket, ?string $targetBasePath = null): void
+    /**
+     * @param resource|string $content
+     */
+    protected function putToStorage(string $name, $content): void
     {
-        $targetBasePath = $this->trimTargetBasePath($targetBasePath);
-        $this->logger->info('Exporting buckets');
-
         $this->s3Client->putObject([
-            'Bucket' => $targetBucket,
-            'Key' => $targetBasePath . 'buckets.json',
-            'Body' => json_encode($this->sapiClient->listBuckets(['include' => 'attributes,metadata'])),
-        ]);
-
-        $this->logger->info('Exporting tables');
-        $tables = $this->sapiClient->listTables(null, [
-            'include' => 'attributes,columns,buckets,metadata,columnMetadata',
-        ]);
-
-        $this->s3Client->putObject([
-            'Bucket' => $targetBucket,
-            'Key' => $targetBasePath . 'tables.json',
-            'Body' => json_encode($tables),
+            'Bucket' => $this->bucket,
+            'Key' => $this->path . $name,
+            'Body' => $content,
         ]);
     }
 
-    public function backupTable(string $tableId, string $targetBucket, ?string $targetBasePath = null): void
+    public function backupTable(string $tableId): void
     {
-        $table = $this->sapiClient->getTable($tableId);
-
-        if ($table['bucket']['stage'] === 'sys') {
-            $this->logger->warning(sprintf('Skipping table %s (sys bucket)', $table['id']));
+        try {
+            $fileInfo = $this->getTableFileInfo($tableId);
+        } catch (SkipTableException $e) {
             return;
         }
-
-        if ($table['isAlias']) {
-            $this->logger->warning(sprintf('Skipping table %s (alias)', $table['id']));
-            return;
-        }
-
-        $targetBasePath = $this->trimTargetBasePath($targetBasePath);
-        $this->logger->info(sprintf('Exporting table %s', $tableId));
 
         $tmp = new Temp();
         $tmp->initRunFolder();
-
-        $fileId = $this->sapiClient->exportTableAsync($tableId, [
-            'gzip' => true,
-        ]);
-        $fileInfo = $this->sapiClient->getFile($fileId['file']['id'], (new GetFileOptions())->setFederationToken(true));
 
         // Initialize S3Client with credentials from Storage API
         $s3Client = new S3Client([
@@ -131,8 +102,8 @@ class S3Backup
                 $fh = fopen($filePath, 'r');
                 if ($fh) {
                     $this->s3Client->putObject([
-                        'Bucket' => $targetBucket,
-                        'Key' => $targetBasePath . str_replace('.', '/', $tableId) . '.part_' . $i . '.csv.gz',
+                        'Bucket' => $this->bucket,
+                        'Key' => $this->path . str_replace('.', '/', $tableId) . '.part_' . $i . '.csv.gz',
                         'Body' => $fh,
                     ]);
                     fclose($fh);
@@ -151,98 +122,15 @@ class S3Backup
 
             $fh = fopen($tmpFilePath, 'r');
             if ($fh) {
-                $this->s3Client->putObject([
-                    'Bucket' => $targetBucket,
-                    'Key' => $targetBasePath . str_replace('.', '/', $tableId) . '.csv.gz',
-                    'Body' => $fh,
-                ]);
+                $this->putToStorage(
+                    $this->path . str_replace('.', '/', $tableId) . '.csv.gz',
+                    $fh
+                );
                 fclose($fh);
             } else {
                 throw new \Exception(sprintf('Cannot open file %s', $tmpFilePath));
             }
             $fs->remove($tmpFilePath);
-        }
-    }
-
-    public function backupConfigs(
-        string $targetBucket,
-        ?string $targetBasePath = null,
-        bool $includeVersions = true
-    ): void {
-        $targetBasePath = $this->trimTargetBasePath($targetBasePath);
-        $this->logger->info('Exporting configurations');
-
-        $tmp = new Temp();
-        $tmp->initRunFolder();
-
-        $configurationsFile = $tmp->createFile('configurations.json');
-        $versionsFile = $tmp->createFile('versions.json');
-
-        // use raw api call to prevent parsing json - preserve empty JSON objects
-        $this->sapiClient->apiGet('storage/components?include=configuration', $configurationsFile->getPathname());
-        $handle = fopen((string) $configurationsFile, 'r');
-        if ($handle) {
-            $this->s3Client->putObject([
-                'Bucket' => $targetBucket,
-                'Key' => $targetBasePath . 'configurations.json',
-                'Body' => $handle,
-            ]);
-            fclose($handle);
-        } else {
-            throw new \Exception(sprintf('Cannot open file %s', (string) $configurationsFile));
-        }
-
-        $url = 'storage/components';
-        $url .= '?include=configuration,rows,state';
-        $this->sapiClient->apiGet($url, $configurationsFile->getPathname());
-        $configurations = json_decode((string) file_get_contents($configurationsFile->getPathname()));
-
-        $limit = self::CONFIGURATION_PAGING_LIMIT;
-
-        foreach ($configurations as $component) {
-            $this->logger->info(sprintf('Exporting %s configurations', $component->id));
-
-            foreach ($component->configurations as $configuration) {
-                if ($includeVersions) {
-                    $offset = 0;
-                    $versions = [];
-                    do {
-                        $url = "storage/components/{$component->id}/configs/{$configuration->id}/versions";
-                        $url .= '?include=name,description,configuration,state';
-                        $url .= "&limit={$limit}&offset={$offset}";
-                        $this->sapiClient->apiGet($url, $versionsFile->getPathname());
-                        $versionsTmp = json_decode((string) file_get_contents($versionsFile->getPathname()));
-
-                        $versions = array_merge($versions, $versionsTmp);
-                        $offset = $offset + $limit;
-                    } while (count($versionsTmp) > 0);
-                    $configuration->_versions = $versions;
-                }
-                if ($includeVersions) {
-                    foreach ($configuration->rows as &$row) {
-                        $offset = 0;
-                        $versions = [];
-                        do {
-                            $url = "storage/components/{$component->id}";
-                            $url .= "/configs/{$configuration->id}";
-                            $url .= "/rows/{$row->id}/versions";
-                            $url .= '?include=configuration';
-                            $url .= "&limit={$limit}&offset={$offset}";
-                            $this->sapiClient->apiGet($url, $versionsFile->getPathname());
-                            $versionsTmp = json_decode((string) file_get_contents($versionsFile->getPathname()));
-                            $versions = array_merge($versions, $versionsTmp);
-                            $offset = $offset + $limit;
-                        } while (count($versionsTmp) > 0);
-                        $row->_versions = $versions;
-                    }
-                }
-                $this->s3Client->putObject([
-                    'Bucket' => $targetBucket,
-                    'Key' => $targetBasePath . 'configurations/' . $component->id . '/' .
-                        $configuration->id . '.json',
-                    'Body' => json_encode($configuration),
-                ]);
-            }
         }
     }
 }

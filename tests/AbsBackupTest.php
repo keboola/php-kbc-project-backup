@@ -4,46 +4,56 @@ declare(strict_types=1);
 
 namespace Keboola\ProjectBackup\Tests;
 
-use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
-use Keboola\StorageApi\Client as StorageApi;
+use Keboola\ProjectBackup\AbsBackup;
+use Keboola\StorageApi\Client;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\Metadata;
 use Keboola\StorageApi\Options\Components\Configuration;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
-use Keboola\ProjectBackup\S3Backup;
 use Keboola\Temp\Temp;
+use MicrosoftAzure\Storage\Blob\BlobRestProxy;
+use MicrosoftAzure\Storage\Blob\Models\Blob;
+use MicrosoftAzure\Storage\Blob\Models\Container;
+use MicrosoftAzure\Storage\Common\Middlewares\RetryMiddlewareFactory;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
-class S3BackupTest extends TestCase
+class AbsBackupTest extends TestCase
 {
     use CleanupKbcProject;
 
-    protected StorageApi $sapiClient;
+    protected Client $sapiClient;
 
-    private S3Client $s3Client;
+    private BlobRestProxy $absClient;
 
     public function setUp(): void
     {
         parent::setUp();
 
-        $this->sapiClient = new StorageApi([
-            'url' => getenv('TEST_AWS_STORAGE_API_URL'),
-            'token' => getenv('TEST_AWS_STORAGE_API_TOKEN'),
+        $this->sapiClient = new Client([
+            'url' => getenv('TEST_AZURE_STORAGE_API_URL'),
+            'token' => getenv('TEST_AZURE_STORAGE_API_TOKEN'),
         ]);
 
         $this->cleanupKbcProject();
 
-        putenv('AWS_ACCESS_KEY_ID=' . getenv('TEST_AWS_ACCESS_KEY_ID'));
-        putenv('AWS_SECRET_ACCESS_KEY=' . getenv('TEST_AWS_SECRET_ACCESS_KEY'));
+        $this->absClient = BlobRestProxy::createBlobService(sprintf(
+            'DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net',
+            (string) getenv('TEST_AZURE_ACCOUNT_NAME'),
+            (string) getenv('TEST_AZURE_ACCOUNT_KEY')
+        ));
+        $this->absClient->pushMiddleware(
+            RetryMiddlewareFactory::create()
+        );
 
-        $this->s3Client = new S3Client([
-            'version' => 'latest',
-            'region' => getenv('TEST_AWS_REGION'),
-        ]);
+        $containers = $this->absClient->listContainers();
+        $listContainers = array_map(fn(Container $v) => $v->getName(), $containers->getContainers());
 
-        $this->cleanupS3();
+        if (!in_array((string) getenv('TEST_AZURE_CONTAINER_NAME'), $listContainers)) {
+            $this->absClient->createContainer((string) getenv('TEST_AZURE_CONTAINER_NAME'));
+        }
+        $this->cleanupAbs();
     }
 
     public function testExecuteNoVersions(): void
@@ -72,27 +82,25 @@ class S3BackupTest extends TestCase
         );
         $component->addConfigurationRow($row);
 
-        $backup = new S3Backup(
+        $backup = new AbsBackup(
             $this->sapiClient,
-            $this->s3Client,
-            (string) getenv('TEST_AWS_S3_BUCKET'),
-            'backup'
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupConfigs(false);
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetFile = $temp->createTmpFile('configurations.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/configurations.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations.json'
+        );
 
-        $targetContents = file_get_contents((string) $targetFile);
-
-        $targetData = json_decode((string) $targetContents, true);
+        $targetData = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
         $targetComponent = [];
         foreach ($targetData as $component) {
             if ($component['id'] === 'transformation') {
@@ -113,14 +121,15 @@ class S3BackupTest extends TestCase
         self::assertArrayNotHasKey('rows', $targetConfiguration);
 
         $configurationId = $targetConfiguration['id'];
-        $targetFile = $temp->createTmpFile('configurations.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/configurations/transformation/' . $configurationId . '.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $targetContents = file_get_contents((string) $targetFile);
-        $targetConfiguration = json_decode((string) $targetContents, true);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations/transformation/' . $configurationId . '.json'
+        );
+
+        $targetConfiguration = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
 
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('test-configuration', $targetConfiguration['name']);
@@ -159,27 +168,25 @@ class S3BackupTest extends TestCase
         );
         $component->addConfigurationRow($row);
 
-        $backup = new S3Backup(
+        $backup = new AbsBackup(
             $this->sapiClient,
-            $this->s3Client,
-            (string) getenv('TEST_AWS_S3_BUCKET'),
-            'backup'
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupConfigs(true);
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetFile = $temp->createTmpFile('configurations.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/configurations.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations.json'
+        );
 
-        $targetContents = file_get_contents((string) $targetFile);
-
-        $targetData = json_decode((string) $targetContents, true);
+        $targetData = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
         $targetComponent = [];
         foreach ($targetData as $component) {
             if ($component['id'] === 'transformation') {
@@ -200,14 +207,14 @@ class S3BackupTest extends TestCase
         self::assertArrayNotHasKey('rows', $targetConfiguration);
 
         $configurationId = $targetConfiguration['id'];
-        $targetFile = $temp->createTmpFile('configurations.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/configurations/transformation/' . $configurationId . '.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $targetContents = file_get_contents((string) $targetFile);
-        $targetConfiguration = json_decode((string) $targetContents, true);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations/transformation/' . $configurationId . '.json'
+        );
+        $targetConfiguration = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
 
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals(3, $targetConfiguration['version']);
@@ -259,25 +266,24 @@ class S3BackupTest extends TestCase
             $component->addConfigurationRow($row);
         }
 
-        $backup = new S3Backup(
+        $backup = new AbsBackup(
             $this->sapiClient,
-            $this->s3Client,
-            (string) getenv('TEST_AWS_S3_BUCKET'),
-            'backup'
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupConfigs();
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetFile = $temp->createTmpFile($config->getConfigurationId() . 'configurations.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/configurations/transformation/' . $config->getConfigurationId() . '.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $targetContents = file_get_contents((string) $targetFile);
-        $targetConfiguration = json_decode((string) $targetContents, true);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations/transformation/' . $config->getConfigurationId() . '.json'
+        );
+        $targetConfiguration = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('test-configuration', $targetConfiguration['name']);
         self::assertEquals('Test Configuration', $targetConfiguration['description']);
@@ -349,49 +355,40 @@ class S3BackupTest extends TestCase
         );
         $component->addConfigurationRow($row);
 
-        $backup = new S3Backup(
+        $backup = new AbsBackup(
             $this->sapiClient,
-            $this->s3Client,
-            (string) getenv('TEST_AWS_S3_BUCKET'),
-            'backup'
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupConfigs(false);
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetFile = $temp->createTmpFile('configurations.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/configurations.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $targetContents = file_get_contents((string) $targetFile);
-        $targetData = json_decode((string) $targetContents);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations.json'
+        );
+        $targetData = json_decode((string) stream_get_contents($targetContents->getContentStream()));
         $targetConfiguration = $targetData[0]->configurations[0];
 
         self::assertEquals(new stdClass(), $targetConfiguration->configuration->dummyObject);
         self::assertEquals([], $targetConfiguration->configuration->dummyArray);
 
         $configurationId = $targetConfiguration->id;
-        $targetFile = $temp->createTmpFile($configurationId . 'configurations.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/configurations/transformation/' . $configurationId . '.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $targetContents = file_get_contents((string) $targetFile);
-        $targetConfiguration = json_decode((string) $targetContents);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations/transformation/' . $configurationId . '.json'
+        );
+        $targetConfiguration = json_decode((string) stream_get_contents($targetContents->getContentStream()));
 
         self::assertEquals(new stdClass(), $targetConfiguration->rows[0]->configuration->dummyObject);
         self::assertEquals([], $targetConfiguration->rows[0]->configuration->dummyArray);
     }
 
-    //@FIXME backup table skip tests
-
     public function testExecuteLinkedBuckets(): void
     {
-        $bucketId = $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
+        $bucketId = $this->sapiClient->createBucket('main', Client::STAGE_IN);
 
         $this->sapiClient->setBucketAttribute($bucketId, 'key', 'value', true);
         $this->sapiClient->shareBucket($bucketId, ['sharing' => 'organization']);
@@ -403,36 +400,32 @@ class S3BackupTest extends TestCase
 
         $this->sapiClient->linkBucket('linked', 'in', $projectId, $bucketId);
 
-        $backup = new S3Backup(
+        $backup = new AbsBackup(
             $this->sapiClient,
-            $this->s3Client,
-            (string) getenv('TEST_AWS_S3_BUCKET'),
-            'backup'
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupTablesMetadata();
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetFile = $temp->createTmpFile('buckets.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/buckets.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $buckets = json_decode((string) file_get_contents((string) $targetFile), true);
+        $targetContents = $this->absClient->getBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), 'buckets.json');
+
+        $buckets = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
 
         self::assertCount(2, $buckets);
         self::assertNotEmpty($buckets[1]['sourceBucket']);
 
-        $targetFile = $temp->createTmpFile('tables.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/tables.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
+        $targetContents = $this->absClient->getBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), 'tables.json');
 
-        $tables = json_decode((string) file_get_contents((string) $targetFile), true);
+        $tables = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
 
         self::assertCount(2, $tables);
         self::assertNotEmpty($tables[1]['sourceTable']);
@@ -440,7 +433,7 @@ class S3BackupTest extends TestCase
 
     public function testExecuteMetadata(): void
     {
-        $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
+        $this->sapiClient->createBucket('main', Client::STAGE_IN);
         $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $metadata = new Metadata($this->sapiClient);
@@ -463,35 +456,35 @@ class S3BackupTest extends TestCase
             ],
         ]);
 
-        $backup = new S3Backup(
+        $backup = new AbsBackup(
             $this->sapiClient,
-            $this->s3Client,
-            (string) getenv('TEST_AWS_S3_BUCKET'),
-            'backup'
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupTablesMetadata();
 
         $temp = new Temp();
         $temp->initRunFolder();
 
-        $targetFile = $temp->createTmpFile('buckets.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/buckets.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-
-        $data = json_decode((string) file_get_contents((string) $targetFile), true);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'buckets.json'
+        );
+        $data = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
         $this->assertEquals('bucketKey', $data[0]['metadata'][0]['key']);
         $this->assertEquals('bucketValue', $data[0]['metadata'][0]['value']);
 
-        $targetFile = $temp->createTmpFile('tables.json');
-        $this->s3Client->getObject([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/tables.json',
-            'SaveAs' => (string) $targetFile,
-        ]);
-        $data = json_decode((string) file_get_contents((string) $targetFile), true);
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'tables.json'
+        );
+        $data = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
         $this->assertEquals('tableKey', $data[0]['metadata'][0]['key']);
         $this->assertEquals('tableValue', $data[0]['metadata'][0]['value']);
         $this->assertEquals('columnKey', $data[0]['columnMetadata']['col1'][0]['key']);
@@ -500,51 +493,32 @@ class S3BackupTest extends TestCase
 
     public function testExecuteWithoutPath(): void
     {
-        $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
+        $this->sapiClient->createBucket('main', Client::STAGE_IN);
         $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
-        $backup = new S3Backup(
+        $backup = new AbsBackup(
             $this->sapiClient,
-            $this->s3Client,
-            (string) getenv('TEST_AWS_S3_BUCKET'),
-            'backup'
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
         );
         $backup->backupTablesMetadata();
         $backup->backupConfigs();
 
-        $keys = array_map(function ($key) {
-            return $key['Key'];
-        }, $this->s3Client->listObjects([
-            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-        ])->toArray()['Contents']);
+        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'));
+        $listBlobs = array_map(fn(Blob $v) => $v->getName(), $blobs->getBlobs());
 
-        self::assertTrue(in_array('backup/buckets.json', $keys));
-        self::assertTrue(in_array('backup/tables.json', $keys));
-        self::assertTrue(in_array('backup/configurations.json', $keys));
-        self::assertCount(3, $keys);
+        self::assertTrue(in_array('buckets.json', $listBlobs));
+        self::assertTrue(in_array('tables.json', $listBlobs));
+        self::assertTrue(in_array('configurations.json', $listBlobs));
+        self::assertCount(3, $listBlobs);
     }
 
-    private function cleanupS3(): void
+    private function cleanupAbs(): void
     {
-        $keys = $this->s3Client->listObjects(['Bucket' => getenv('TEST_AWS_S3_BUCKET')])->toArray();
-        if (isset($keys['Contents'])) {
-            $keys = $keys['Contents'];
-        } else {
-            $keys = [];
-        }
+        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'));
 
-        $deleteObjects = [];
-        foreach ($keys as $key) {
-            $deleteObjects[] = $key;
-        }
-
-        if (count($deleteObjects) > 0) {
-            $this->s3Client->deleteObjects(
-                [
-                    'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-                    'Delete' => ['Objects' => $deleteObjects],
-                ]
-            );
+        foreach ($blobs->getBlobs() as $blob) {
+            $this->absClient->deleteBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), $blob->getName());
         }
     }
 }
