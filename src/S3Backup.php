@@ -45,10 +45,10 @@ class S3Backup extends Backup
      */
     protected function putToStorage(string $name, $content): void
     {
-        $this->s3Client->putObject([
-            'Bucket' => $this->bucket,
-            'Key' => $this->path . $name,
-            'Body' => $content,
-        ]);
+        $this->s3Client->upload(
+            $this->bucket,
+            $this->path . $name,
+            $content
+        );
     }
 }
