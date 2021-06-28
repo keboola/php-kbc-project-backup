@@ -6,7 +6,11 @@ namespace Keboola\ProjectBackup;
 
 use Exception;
 use Keboola\ProjectBackup\Exception\SkipTableException;
+use Keboola\ProjectBackup\FileClient\AbsFileClient;
+use Keboola\ProjectBackup\FileClient\IFileClient;
+use Keboola\ProjectBackup\FileClient\S3FileClient;
 use Keboola\StorageApi\Client;
+use Keboola\StorageApi\HandlerStack;
 use Keboola\StorageApi\Options\GetFileOptions;
 use Keboola\Temp\Temp;
 use Psr\Log\LoggerInterface;
@@ -26,9 +30,46 @@ abstract class Backup
         $this->logger = $logger ?: new NullLogger();
     }
 
-    abstract protected function putToStorage(string $name, string $content): void;
+    /**
+     * @param string|resource $content
+     */
+    abstract protected function putToStorage(string $name, $content): void;
 
-    abstract public function backupTable(string $tableId): void;
+    public function backupTable(string $tableId): void
+    {
+        try {
+            $fileInfo = $this->getTableFileInfo($tableId);
+        } catch (SkipTableException $e) {
+            return;
+        }
+
+        $fileClient = $this->getFileClient($fileInfo);
+        if ($fileInfo['isSliced'] === true) {
+            // Download manifest with all sliced files
+            $client = new \GuzzleHttp\Client([
+                'handler' => HandlerStack::create([
+                    'backoffMaxTries' => 10,
+                ]),
+            ]);
+            $manifest = json_decode($client->get($fileInfo['url'])->getBody()->getContents(), true);
+
+            foreach ($manifest['entries'] as $i => $part) {
+                $this->putToStorage(
+                    sprintf(
+                        '%s.part_%d.csv.gz',
+                        str_replace('.', '/', $tableId),
+                        $i
+                    ),
+                    $fileClient->getFileContent($part)
+                );
+            }
+        } else {
+            $this->putToStorage(
+                str_replace('.', '/', $tableId) . '.csv.gz',
+                $fileClient->getFileContent()
+            );
+        }
+    }
 
     protected function getTableFileInfo(string $tableId): array
     {
@@ -146,6 +187,17 @@ abstract class Backup
                     (string) json_encode($configuration)
                 );
             }
+        }
+    }
+
+    protected function getFileClient(array $fileInfo): IFileClient
+    {
+        if (isset($fileInfo['credentials'])) {
+            return new S3FileClient($fileInfo);
+        } elseif (isset($fileInfo['absCredentials'])) {
+            return new AbsFileClient($fileInfo);
+        } else {
+            throw new Exception('Unknown file storage client.');
         }
     }
 }
