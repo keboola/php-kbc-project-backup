@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup;
 
 use Exception;
-use Keboola\App\ProjectBackup\Component;
 use Keboola\ProjectBackup\Exception\SkipTableException;
 use Keboola\ProjectBackup\FileClient\AbsFileClient;
 use Keboola\ProjectBackup\FileClient\IFileClient;
@@ -15,9 +14,6 @@ use Keboola\StorageApi\Client;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\DevBranches;
 use Keboola\StorageApi\HandlerStack;
-use Keboola\StorageApi\Options\Components\Configuration;
-use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
-use Keboola\StorageApi\Options\Components\ListComponentConfigurationsOptions;
 use Keboola\StorageApi\Options\Components\ListConfigurationMetadataOptions;
 use Keboola\StorageApi\Options\GetFileOptions;
 use Keboola\Temp\Temp;
