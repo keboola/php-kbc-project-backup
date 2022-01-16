@@ -5,12 +5,20 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup;
 
 use Exception;
+use Keboola\App\ProjectBackup\Component;
 use Keboola\ProjectBackup\Exception\SkipTableException;
 use Keboola\ProjectBackup\FileClient\AbsFileClient;
 use Keboola\ProjectBackup\FileClient\IFileClient;
 use Keboola\ProjectBackup\FileClient\S3FileClient;
+use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
+use Keboola\StorageApi\Components;
+use Keboola\StorageApi\DevBranches;
 use Keboola\StorageApi\HandlerStack;
+use Keboola\StorageApi\Options\Components\Configuration;
+use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
+use Keboola\StorageApi\Options\Components\ListComponentConfigurationsOptions;
+use Keboola\StorageApi\Options\Components\ListConfigurationMetadataOptions;
 use Keboola\StorageApi\Options\GetFileOptions;
 use Keboola\Temp\Temp;
 use Psr\Log\LoggerInterface;
@@ -24,10 +32,24 @@ abstract class Backup
 
     protected Client $sapiClient;
 
+    protected BranchAwareClient $branchAwareClient;
+
     public function __construct(Client $sapiClient, ?LoggerInterface $logger)
     {
         $this->sapiClient = $sapiClient;
         $this->logger = $logger ?: new NullLogger();
+
+        $devBranches = new DevBranches($this->sapiClient);
+        $listBranches = $devBranches->listBranches();
+        $defaultBranch = current(array_filter($listBranches, fn($v) => $v['isDefault'] === true));
+
+        $this->branchAwareClient = new BranchAwareClient(
+            $defaultBranch['id'],
+            [
+                'url' => $sapiClient->getApiUrl(),
+                'token' => $sapiClient->getTokenString(),
+            ]
+        );
     }
 
     /**
@@ -125,7 +147,7 @@ abstract class Backup
         $versionsFile = $tmp->createFile('versions.json');
 
         // use raw api call to prevent parsing json - preserve empty JSON objects
-        $this->sapiClient->apiGet('storage/components?include=configuration', $configurationsFile->getPathname());
+        $this->sapiClient->apiGet('components?include=configuration', $configurationsFile->getPathname());
         $handle = fopen((string) $configurationsFile, 'r');
         if ($handle) {
             $this->putToStorage('configurations.json', (string) stream_get_contents($handle));
@@ -134,7 +156,7 @@ abstract class Backup
             throw new Exception(sprintf('Cannot open file %s', (string) $configurationsFile));
         }
 
-        $url = 'storage/components';
+        $url = 'components';
         $url .= '?include=configuration,rows,state';
         $this->sapiClient->apiGet($url, $configurationsFile->getPathname());
         $configurations = json_decode((string) file_get_contents($configurationsFile->getPathname()));
@@ -186,6 +208,22 @@ abstract class Backup
                     ),
                     (string) json_encode($configuration)
                 );
+                if ($component->type === 'transformation') {
+                    $metadata = new ListConfigurationMetadataOptions();
+                    $metadata->setComponentId($component->id);
+                    $metadata->setConfigurationId($configuration->id);
+
+                    $componentClass = new Components($this->branchAwareClient);
+
+                    $this->putToStorage(
+                        sprintf(
+                            'configurations/%s/%s.json.metadata',
+                            $component->id,
+                            $configuration->id
+                        ),
+                        (string)json_encode($componentClass->listConfigurationMetadata($metadata))
+                    );
+                }
             }
         }
     }
