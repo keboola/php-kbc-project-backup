@@ -6,7 +6,7 @@ env:
   APP_IMAGE: php-kbc-project-backup
 
   # DockerHub login
-  DOCKERHUB_USER: "{{env(DOCKERHUB_USER)}}"
+  DOCKERHUB_USER: "keboolabot"
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   # AWS Credentials
