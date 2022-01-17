@@ -217,7 +217,7 @@ abstract class Backup
                             $component->id,
                             $configuration->id
                         ),
-                        (string)json_encode($componentClass->listConfigurationMetadata($metadata))
+                        (string) json_encode($componentClass->listConfigurationMetadata($metadata))
                     );
                 }
             }
