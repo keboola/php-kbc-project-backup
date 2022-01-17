@@ -45,8 +45,8 @@ class S3BackupTest extends TestCase
         $this->branchAwareClient = new BranchAwareClient(
             $defaultBranch['id'],
             [
-                'url' => getenv('TEST_AZURE_STORAGE_API_URL'),
-                'token' => getenv('TEST_AZURE_STORAGE_API_TOKEN'),
+                'url' => getenv('TEST_AWS_STORAGE_API_URL'),
+                'token' => getenv('TEST_AWS_STORAGE_API_TOKEN'),
             ]
         );
 
