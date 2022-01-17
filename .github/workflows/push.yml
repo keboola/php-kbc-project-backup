@@ -44,14 +44,18 @@ jobs:
         name: Build image
         run: docker build -t $APP_IMAGE .
       -
-        name: Set image tag
-        id: tag
-        run: |
-          TAG="${GITHUB_REF##*/}"
-          IS_SEMANTIC_TAG=$(echo "$TAG" | grep -q '^v\?[0-9]\+\.[0-9]\+\.[0-9]\+$' && echo true || echo false)
-          echo "Tag = '$TAG', is semantic tag = '$IS_SEMANTIC_TAG'"
-          echo "::set-output name=app_image_tag::$TAG"
-          echo "::set-output name=is_semantic_tag::$IS_SEMANTIC_TAG"
-      -
         name: Run tests
-        run: docker run ${{env.APP_IMAGE}} composer ci
+        run: docker run
+          -e TEST_AWS_STORAGE_API_URL
+          -e TEST_AWS_STORAGE_API_TOKEN
+          -e TEST_AWS_ACCESS_KEY_ID
+          -e TEST_AWS_SECRET_ACCESS_KEY
+          -e TEST_AWS_REGION
+          -e TEST_AWS_S3_BUCKET
+          -e TEST_AZURE_STORAGE_API_URL
+          -e TEST_AZURE_STORAGE_API_TOKEN
+          -e TEST_AZURE_ACCOUNT_NAME
+          -e TEST_AZURE_ACCOUNT_KEY
+          -e TEST_AZURE_CONTAINER_NAME
+          ${{env.APP_IMAGE}}
+          composer ci
