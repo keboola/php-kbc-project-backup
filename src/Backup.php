@@ -167,7 +167,7 @@ abstract class Backup
                     $offset = 0;
                     $versions = [];
                     do {
-                        $url = "storage/components/{$component->id}/configs/{$configuration->id}/versions";
+                        $url = "components/{$component->id}/configs/{$configuration->id}/versions";
                         $url .= '?include=name,description,configuration,state';
                         $url .= "&limit={$limit}&offset={$offset}";
                         $this->sapiClient->apiGet($url, $versionsFile->getPathname());
@@ -183,7 +183,7 @@ abstract class Backup
                         $offset = 0;
                         $versions = [];
                         do {
-                            $url = "storage/components/{$component->id}";
+                            $url = "components/{$component->id}";
                             $url .= "/configs/{$configuration->id}";
                             $url .= "/rows/{$row->id}/versions";
                             $url .= '?include=configuration';
