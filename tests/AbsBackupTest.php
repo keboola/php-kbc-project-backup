@@ -6,10 +6,13 @@ namespace Keboola\ProjectBackup\Tests;
 
 use Keboola\Csv\CsvFile;
 use Keboola\ProjectBackup\AbsBackup;
+use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
 use Keboola\StorageApi\Components;
+use Keboola\StorageApi\DevBranches;
 use Keboola\StorageApi\Metadata;
 use Keboola\StorageApi\Options\Components\Configuration;
+use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
 use Keboola\Temp\Temp;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
@@ -25,6 +28,8 @@ class AbsBackupTest extends TestCase
 
     protected Client $sapiClient;
 
+    protected Client $branchAwareClient;
+
     private BlobRestProxy $absClient;
 
     public function setUp(): void
@@ -35,6 +40,18 @@ class AbsBackupTest extends TestCase
             'url' => getenv('TEST_AZURE_STORAGE_API_URL'),
             'token' => getenv('TEST_AZURE_STORAGE_API_TOKEN'),
         ]);
+
+        $devBranches = new DevBranches($this->sapiClient);
+        $listBranches = $devBranches->listBranches();
+        $defaultBranch = current(array_filter($listBranches, fn($v) => $v['isDefault'] === true));
+
+        $this->branchAwareClient = new BranchAwareClient(
+            $defaultBranch['id'],
+            [
+                'url' => getenv('TEST_AZURE_STORAGE_API_URL'),
+                'token' => getenv('TEST_AZURE_STORAGE_API_TOKEN'),
+            ]
+        );
 
         $this->cleanupKbcProject();
 
@@ -54,6 +71,86 @@ class AbsBackupTest extends TestCase
             $this->absClient->createContainer((string) getenv('TEST_AZURE_CONTAINER_NAME'));
         }
         $this->cleanupAbs();
+    }
+
+    public function testConfigurationMetadata(): void
+    {
+        $component = new Components($this->branchAwareClient);
+
+        $config = new Configuration();
+        $config->setComponentId('keboola.snowflake-transformation');
+        $config->setDescription('Test Configuration');
+        $config->setConfigurationId('sapi-php-test');
+        $config->setName('test-configuration');
+        $configData = $component->addConfiguration($config);
+        $config->setConfigurationId($configData['id']);
+
+        $row = new ConfigurationRow($config);
+        $row->setChangeDescription('Row 1');
+        $row->setConfiguration(
+            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']]
+        );
+        $component->addConfigurationRow($row);
+
+        $configMetadata = new ConfigurationMetadata($config);
+        $configMetadata->setMetadata([
+            [
+                'key' => 'KBC.configuration.folderName',
+                'value' => 'testFolder',
+            ],
+        ]);
+
+        $component->addConfigurationMetadata($configMetadata);
+
+        $backup = new AbsBackup(
+            $this->sapiClient,
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+        );
+        $backup->backupConfigs(false);
+
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations.json'
+        );
+
+        $targetData = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
+        $targetComponent = [];
+        foreach ($targetData as $component) {
+            if ($component['id'] === 'keboola.snowflake-transformation') {
+                $targetComponent = $component;
+                break;
+            }
+        }
+        self::assertGreaterThan(0, count($targetComponent));
+
+        $targetConfiguration = [];
+        foreach ($targetComponent['configurations'] as $configuration) {
+            if ($configuration['name'] === 'test-configuration') {
+                $targetConfiguration = $configuration;
+            }
+        }
+        self::assertGreaterThan(0, count($targetConfiguration));
+        self::assertEquals('Test Configuration', $targetConfiguration['description']);
+        self::assertArrayNotHasKey('rows', $targetConfiguration);
+
+        $configurationId = $targetConfiguration['id'];
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'configurations/keboola.snowflake-transformation/' . $configurationId . '.json.metadata'
+        );
+
+        $targetConfiguration = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
+
+        self::assertCount(1, $targetConfiguration);
+        self::assertEquals('KBC.configuration.folderName', $targetConfiguration[0]['key']);
+        self::assertEquals('testFolder', $targetConfiguration[0]['value']);
     }
 
     public function testExecuteNoVersions(): void

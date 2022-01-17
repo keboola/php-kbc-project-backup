@@ -6,10 +6,13 @@ namespace Keboola\ProjectBackup\Tests;
 
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
-use Keboola\StorageApi\Client as StorageApi;
+use Keboola\StorageApi\BranchAwareClient;
+use Keboola\StorageApi\Client;
 use Keboola\StorageApi\Components;
+use Keboola\StorageApi\DevBranches;
 use Keboola\StorageApi\Metadata;
 use Keboola\StorageApi\Options\Components\Configuration;
+use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
 use Keboola\ProjectBackup\S3Backup;
 use Keboola\Temp\Temp;
@@ -20,7 +23,9 @@ class S3BackupTest extends TestCase
 {
     use CleanupKbcProject;
 
-    protected StorageApi $sapiClient;
+    protected Client $sapiClient;
+
+    protected Client $branchAwareClient;
 
     private S3Client $s3Client;
 
@@ -28,10 +33,22 @@ class S3BackupTest extends TestCase
     {
         parent::setUp();
 
-        $this->sapiClient = new StorageApi([
+        $this->sapiClient = new Client([
             'url' => getenv('TEST_AWS_STORAGE_API_URL'),
             'token' => getenv('TEST_AWS_STORAGE_API_TOKEN'),
         ]);
+
+        $devBranches = new DevBranches($this->sapiClient);
+        $listBranches = $devBranches->listBranches();
+        $defaultBranch = current(array_filter($listBranches, fn($v) => $v['isDefault'] === true));
+
+        $this->branchAwareClient = new BranchAwareClient(
+            $defaultBranch['id'],
+            [
+                'url' => getenv('TEST_AWS_STORAGE_API_URL'),
+                'token' => getenv('TEST_AWS_STORAGE_API_TOKEN'),
+            ]
+        );
 
         $this->cleanupKbcProject();
 
@@ -44,6 +61,92 @@ class S3BackupTest extends TestCase
         ]);
 
         $this->cleanupS3();
+    }
+
+
+    public function testConfigurationMetadata(): void
+    {
+        $component = new Components($this->branchAwareClient);
+
+        $config = new Configuration();
+        $config->setComponentId('keboola.snowflake-transformation');
+        $config->setDescription('Test Configuration');
+        $config->setConfigurationId('sapi-php-test');
+        $config->setName('test-configuration');
+        $configData = $component->addConfiguration($config);
+        $config->setConfigurationId($configData['id']);
+
+        $row = new ConfigurationRow($config);
+        $row->setChangeDescription('Row 1');
+        $row->setConfiguration(
+            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']]
+        );
+        $component->addConfigurationRow($row);
+
+        $configMetadata = new ConfigurationMetadata($config);
+        $configMetadata->setMetadata([
+            [
+                'key' => 'KBC.configuration.folderName',
+                'value' => 'testFolder',
+            ],
+        ]);
+
+        $component->addConfigurationMetadata($configMetadata);
+
+        $backup = new S3Backup(
+            $this->sapiClient,
+            $this->s3Client,
+            (string) getenv('TEST_AWS_S3_BUCKET'),
+            'backup'
+        );
+        $backup->backupConfigs(false);
+
+        $temp = new Temp();
+        $temp->initRunFolder();
+
+        $targetFile = $temp->createTmpFile('configurations.json');
+        $this->s3Client->getObject([
+            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+            'Key' => 'backup/configurations.json',
+            'SaveAs' => (string) $targetFile,
+        ]);
+
+        $targetContents = file_get_contents((string) $targetFile);
+
+        $targetData = json_decode((string) $targetContents, true);
+
+        $targetComponent = [];
+        foreach ($targetData as $component) {
+            if ($component['id'] === 'keboola.snowflake-transformation') {
+                $targetComponent = $component;
+                break;
+            }
+        }
+        self::assertGreaterThan(0, count($targetComponent));
+
+        $targetConfiguration = [];
+        foreach ($targetComponent['configurations'] as $configuration) {
+            if ($configuration['name'] === 'test-configuration') {
+                $targetConfiguration = $configuration;
+            }
+        }
+        self::assertGreaterThan(0, count($targetConfiguration));
+        self::assertEquals('Test Configuration', $targetConfiguration['description']);
+        self::assertArrayNotHasKey('rows', $targetConfiguration);
+
+        $configurationId = $targetConfiguration['id'];
+        $targetFile = $temp->createTmpFile('configurations.json');
+        $this->s3Client->getObject([
+            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+            'Key' => 'backup/configurations/keboola.snowflake-transformation/' . $configurationId . '.json.metadata',
+            'SaveAs' => (string) $targetFile,
+        ]);
+        $targetContents = file_get_contents((string) $targetFile);
+        $targetConfiguration = json_decode((string) $targetContents, true);
+
+        self::assertCount(1, $targetConfiguration);
+        self::assertEquals('KBC.configuration.folderName', $targetConfiguration[0]['key']);
+        self::assertEquals('testFolder', $targetConfiguration[0]['value']);
     }
 
     public function testExecuteNoVersions(): void
@@ -391,7 +494,7 @@ class S3BackupTest extends TestCase
 
     public function testExecuteLinkedBuckets(): void
     {
-        $bucketId = $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
+        $bucketId = $this->sapiClient->createBucket('main', Client::STAGE_IN);
 
         $this->sapiClient->setBucketAttribute($bucketId, 'key', 'value', true);
         $this->sapiClient->shareBucket($bucketId, ['sharing' => 'organization']);
@@ -440,7 +543,7 @@ class S3BackupTest extends TestCase
 
     public function testExecuteMetadata(): void
     {
-        $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
+        $this->sapiClient->createBucket('main', Client::STAGE_IN);
         $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $metadata = new Metadata($this->sapiClient);
@@ -500,7 +603,7 @@ class S3BackupTest extends TestCase
 
     public function testExecuteWithoutPath(): void
     {
-        $this->sapiClient->createBucket('main', StorageApi::STAGE_IN);
+        $this->sapiClient->createBucket('main', Client::STAGE_IN);
         $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $backup = new S3Backup(
