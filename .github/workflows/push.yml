@@ -10,10 +10,10 @@ env:
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   # AWS Credentials
-  TEST_AWS_ACCESS_KEY_ID: "AKIAQ4QRYXTAI4J5X6T3"
+  TEST_AWS_ACCESS_KEY_ID: "AKIAQ4QRYXTAN3KATCMF"
   TEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCKERHUB_TOKEN }}
   TEST_AWS_REGION: "eu-central-1"
-  TEST_AWS_S3_BUCKET: "gh-actions-php-kbc-project-backup"
+  TEST_AWS_S3_BUCKET: "php-kbc-project-backup-s3filesbucket-104t9yt5ngurg"
   # https://connection.keboola.com/admin/projects/9016/dashboard
   TEST_AWS_STORAGE_API_URL: "https://connection.keboola.com/"
   TEST_AWS_STORAGE_API_TOKEN: "${{ secrets.TEST_AWS_STORAGE_API_TOKEN }}"
