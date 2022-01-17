@@ -1,0 +1,57 @@
+name: GitHub Actions
+on: [ push ]
+concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
+env:
+  # Name of the image in the ECR
+  APP_IMAGE: php-kbc-project-backup
+
+  # DockerHub login
+  DOCKERHUB_USER: "{{env(DOCKERHUB_USER)}}"
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # AWS Credentials
+  TEST_AWS_ACCESS_KEY_ID: "AKIAQ4QRYXTAI4J5X6T3"
+  TEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCKERHUB_TOKEN }}
+  TEST_AWS_REGION: "eu-central-1"
+  TEST_AWS_S3_BUCKET: "gh-actions-php-kbc-project-backup"
+  TEST_AWS_STORAGE_API_URL: "https://connection.keboola.com/"
+  TEST_AWS_STORAGE_API_TOKEN: "${{ secrets.TEST_AWS_STORAGE_API_TOKEN }}"
+
+  # Azure Credentials
+  TEST_AZURE_ACCOUNT_NAME: "projectmigration"
+  TEST_AZURE_ACCOUNT_KEY: ${{ secrets.TEST_AZURE_ACCOUNT_KEY }}
+  TEST_AZURE_CONTAINER_NAME: "project-migration-test-container"
+  TEST_AZURE_STORAGE_API_URL: "https://connection.north-europe.azure.keboola.com/"
+  TEST_AZURE_STORAGE_API_TOKEN: "${{ secrets.TEST_AZURE_STORAGE_API_TOKEN }}"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
+      is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
+    steps:
+      -
+        name: Check out the repo
+        uses: actions/checkout@v2
+      -
+        name: Print Docker version
+        run: docker -v
+      -
+        name: Docker login
+        if: env.DOCKERHUB_TOKEN
+        run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
+      -
+        name: Build image
+        run: docker build -t $APP_IMAGE .
+      -
+        name: Set image tag
+        id: tag
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          IS_SEMANTIC_TAG=$(echo "$TAG" | grep -q '^v\?[0-9]\+\.[0-9]\+\.[0-9]\+$' && echo true || echo false)
+          echo "Tag = '$TAG', is semantic tag = '$IS_SEMANTIC_TAG'"
+          echo "::set-output name=app_image_tag::$TAG"
+          echo "::set-output name=is_semantic_tag::$IS_SEMANTIC_TAG"
+      -
+        name: Run tests
+        run: docker run ${{env.APP_IMAGE}} composer ci
