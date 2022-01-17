@@ -138,7 +138,7 @@ class S3BackupTest extends TestCase
         $targetFile = $temp->createTmpFile('configurations.json');
         $this->s3Client->getObject([
             'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-            'Key' => 'backup/configurations/transformation/' . $configurationId . '.json.metadata',
+            'Key' => 'backup/configurations/keboola.snowflake-transformation/' . $configurationId . '.json.metadata',
             'SaveAs' => (string) $targetFile,
         ]);
         $targetContents = file_get_contents((string) $targetFile);
