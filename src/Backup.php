@@ -211,14 +211,17 @@ abstract class Backup
 
                     $componentClass = new Components($this->branchAwareClient);
 
-                    $this->putToStorage(
-                        sprintf(
-                            'configurations/%s/%s.json.metadata',
-                            $component->id,
-                            $configuration->id
-                        ),
-                        (string) json_encode($componentClass->listConfigurationMetadata($metadata))
-                    );
+                    $metadataData = $componentClass->listConfigurationMetadata($metadata);
+                    if (!empty($metadataData)) {
+                        $this->putToStorage(
+                            sprintf(
+                                'configurations/%s/%s.json.metadata',
+                                $component->id,
+                                $configuration->id
+                            ),
+                            (string) json_encode($metadataData)
+                        );
+                    }
                 }
             }
         }
