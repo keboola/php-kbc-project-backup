@@ -119,15 +119,20 @@ abstract class Backup
     {
         $this->logger->info('Exporting buckets');
 
+        $buckets = $this->skipLinkedBucket($this->sapiClient->listBuckets(['include' => 'attributes,metadata']));
+
         $this->putToStorage(
             'buckets.json',
-            (string) json_encode($this->sapiClient->listBuckets(['include' => 'attributes,metadata']))
+            (string) json_encode($buckets)
         );
 
         $this->logger->info('Exporting tables');
-        $tables = $this->sapiClient->listTables(null, [
-            'include' => 'attributes,columns,buckets,metadata,columnMetadata',
-        ]);
+        $tables = [];
+        foreach ($buckets as $bucket) {
+            $tables += $this->sapiClient->listTables($bucket['id'], [
+                'include' => 'attributes,columns,buckets,metadata,columnMetadata',
+            ]);
+        }
 
         $this->putToStorage('tables.json', (string) json_encode($tables));
     }
@@ -236,5 +241,10 @@ abstract class Backup
         } else {
             throw new Exception('Unknown file storage client.');
         }
+    }
+
+    private function skipLinkedBucket(array $listBuckets): array
+    {
+        return array_filter($listBuckets, fn($v) => empty($v['sourceBucket']));
     }
 }
