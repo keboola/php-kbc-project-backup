@@ -129,9 +129,12 @@ abstract class Backup
         $this->logger->info('Exporting tables');
         $tables = [];
         foreach ($buckets as $bucket) {
-            $tables += $this->sapiClient->listTables($bucket['id'], [
-                'include' => 'attributes,columns,buckets,metadata,columnMetadata',
-            ]);
+            $tables = array_merge(
+                $tables,
+                $this->sapiClient->listTables($bucket['id'], [
+                    'include' => 'attributes,columns,buckets,metadata,columnMetadata',
+                ])
+            );
         }
 
         $this->putToStorage('tables.json', (string) json_encode($tables));
