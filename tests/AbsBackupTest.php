@@ -514,7 +514,7 @@ class AbsBackupTest extends TestCase
             true
         );
 
-        self::assertCount(2, $buckets);
+        self::assertCount(1, $buckets);
         self::assertNotEmpty($buckets[1]['sourceBucket']);
 
         $targetContents = $this->absClient->getBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), 'tables.json');

@@ -635,17 +635,15 @@ class S3BackupTest extends TestCase
         } else {
             $keys = [];
         }
-
-        $deleteObjects = [];
-        foreach ($keys as $key) {
-            $deleteObjects[] = $key;
-        }
-
-        if (count($deleteObjects) > 0) {
+        if (count($keys) > 0) {
             $this->s3Client->deleteObjects(
                 [
                     'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-                    'Delete' => ['Objects' => $deleteObjects],
+                    'Delete' => [
+                        'Objects' => array_map(function ($key) {
+                            return ['Key' => $key['Key']];
+                        }, $keys)
+                    ],
                 ]
             );
         }
