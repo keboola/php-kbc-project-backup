@@ -642,7 +642,7 @@ class S3BackupTest extends TestCase
                     'Delete' => [
                         'Objects' => array_map(function ($key) {
                             return ['Key' => $key['Key']];
-                        }, $keys)
+                        }, $keys),
                     ],
                 ]
             );
