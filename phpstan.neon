@@ -1,4 +1,2 @@
 parameters:
     checkMissingIterableValueType: false
-    ignoreErrors:
-        - '#Parameter \#4 \$sourceBucketId of method Keboola\\StorageApi\\Client\:\:linkBucket\(\) expects int, string given.#'

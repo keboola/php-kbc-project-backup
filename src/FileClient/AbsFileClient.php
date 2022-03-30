@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Keboola\ProjectBackup\FileClient;
 
+use Keboola\FileStorage\Abs\ClientFactory;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
 use SplFileInfo;
 
@@ -17,7 +18,9 @@ class AbsFileClient implements IFileClient
 
     public function __construct(array $fileInfo)
     {
-        $this->absClient = BlobRestProxy::createBlobService($fileInfo['absCredentials']['SASConnectionString']);
+        $this->absClient = ClientFactory::createClientFromConnectionString(
+            $fileInfo['absCredentials']['SASConnectionString']
+        );
         $this->container = $fileInfo['absPath']['container'];
         $this->name = $fileInfo['absPath']['name'];
     }
