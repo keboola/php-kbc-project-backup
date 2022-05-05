@@ -160,6 +160,7 @@ abstract class Backup
         $limit = self::CONFIGURATION_PAGING_LIMIT;
 
         foreach ($configurations as $component) {
+            break;
             $this->logger->info(sprintf('Exporting %s configurations', $component->id));
 
             foreach ($component->configurations as $configuration) {
