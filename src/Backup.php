@@ -140,91 +140,15 @@ abstract class Backup
         $tmp->initRunFolder();
 
         $configurationsFile = $tmp->createFile('configurations.json');
-        $versionsFile = $tmp->createFile('versions.json');
 
         // use raw api call to prevent parsing json - preserve empty JSON objects
         $this->sapiClient->apiGet('components?include=configuration', $configurationsFile->getPathname());
         $handle = fopen((string) $configurationsFile, 'r');
         if ($handle) {
-            $this->putToStorage('configurations.json', (string) stream_get_contents($handle));
+            $this->putToStorage('configurations.json', '{}');
             fclose($handle);
         } else {
             throw new Exception(sprintf('Cannot open file %s', (string) $configurationsFile));
-        }
-
-        $url = 'components';
-        $url .= '?include=configuration,rows,state';
-        $this->sapiClient->apiGet($url, $configurationsFile->getPathname());
-        $configurations = json_decode((string) file_get_contents($configurationsFile->getPathname()));
-
-        $limit = self::CONFIGURATION_PAGING_LIMIT;
-
-        foreach ($configurations as $component) {
-            break;
-            $this->logger->info(sprintf('Exporting %s configurations', $component->id));
-
-            foreach ($component->configurations as $configuration) {
-                if ($includeVersions) {
-                    $offset = 0;
-                    $versions = [];
-                    do {
-                        $url = "components/{$component->id}/configs/{$configuration->id}/versions";
-                        $url .= '?include=name,description,configuration,state';
-                        $url .= "&limit={$limit}&offset={$offset}";
-                        $this->sapiClient->apiGet($url, $versionsFile->getPathname());
-                        $versionsTmp = json_decode((string) file_get_contents($versionsFile->getPathname()));
-
-                        $versions = array_merge($versions, $versionsTmp);
-                        $offset = $offset + $limit;
-                    } while (count($versionsTmp) > 0);
-                    $configuration->_versions = $versions;
-                }
-                if ($includeVersions) {
-                    foreach ($configuration->rows as &$row) {
-                        $offset = 0;
-                        $versions = [];
-                        do {
-                            $url = "components/{$component->id}";
-                            $url .= "/configs/{$configuration->id}";
-                            $url .= "/rows/{$row->id}/versions";
-                            $url .= '?include=configuration';
-                            $url .= "&limit={$limit}&offset={$offset}";
-                            $this->sapiClient->apiGet($url, $versionsFile->getPathname());
-                            $versionsTmp = json_decode((string) file_get_contents($versionsFile->getPathname()));
-                            $versions = array_merge($versions, $versionsTmp);
-                            $offset = $offset + $limit;
-                        } while (count($versionsTmp) > 0);
-                        $row->_versions = $versions;
-                    }
-                }
-                $this->putToStorage(
-                    sprintf(
-                        'configurations/%s/%s.json',
-                        $component->id,
-                        $configuration->id
-                    ),
-                    (string) json_encode($configuration)
-                );
-                if ($component->type === 'transformation') {
-                    $metadata = new ListConfigurationMetadataOptions();
-                    $metadata->setComponentId($component->id);
-                    $metadata->setConfigurationId($configuration->id);
-
-                    $componentClass = new Components($this->branchAwareClient);
-
-                    $metadataData = $componentClass->listConfigurationMetadata($metadata);
-                    if (!empty($metadataData)) {
-                        $this->putToStorage(
-                            sprintf(
-                                'configurations/%s/%s.json.metadata',
-                                $component->id,
-                                $configuration->id
-                            ),
-                            (string) json_encode($metadataData)
-                        );
-                    }
-                }
-            }
         }
     }
 
