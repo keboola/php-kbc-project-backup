@@ -47,3 +47,7 @@ TEST_AZURE_CONTAINER_NAME=
 ```bash
 docker-compose run --rm tests
 ```
+
+## License
+
+MIT licensed, see [LICENSE](./LICENSE) file.
