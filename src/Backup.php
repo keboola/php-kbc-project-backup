@@ -121,12 +121,12 @@ abstract class Backup
 
         $this->putToStorage(
             'buckets.json',
-            (string) json_encode($this->sapiClient->listBuckets(['include' => 'attributes,metadata']))
+            (string) json_encode($this->sapiClient->listBuckets(['include' => 'metadata']))
         );
 
         $this->logger->info('Exporting tables');
         $tables = $this->sapiClient->listTables(null, [
-            'include' => 'attributes,columns,buckets,metadata,columnMetadata',
+            'include' => 'columns,buckets,metadata,columnMetadata',
         ]);
 
         $this->putToStorage('tables.json', (string) json_encode($tables));
