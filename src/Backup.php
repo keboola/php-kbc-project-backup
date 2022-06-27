@@ -204,24 +204,22 @@ abstract class Backup
                     ),
                     (string) json_encode($configuration)
                 );
-                if ($component->type === 'transformation') {
-                    $metadata = new ListConfigurationMetadataOptions();
-                    $metadata->setComponentId($component->id);
-                    $metadata->setConfigurationId($configuration->id);
+                $metadata = new ListConfigurationMetadataOptions();
+                $metadata->setComponentId($component->id);
+                $metadata->setConfigurationId($configuration->id);
 
-                    $componentClass = new Components($this->branchAwareClient);
+                $componentClass = new Components($this->branchAwareClient);
 
-                    $metadataData = $componentClass->listConfigurationMetadata($metadata);
-                    if (!empty($metadataData)) {
-                        $this->putToStorage(
-                            sprintf(
-                                'configurations/%s/%s.json.metadata',
-                                $component->id,
-                                $configuration->id
-                            ),
-                            (string) json_encode($metadataData)
-                        );
-                    }
+                $metadataData = $componentClass->listConfigurationMetadata($metadata);
+                if (!empty($metadataData)) {
+                    $this->putToStorage(
+                        sprintf(
+                            'configurations/%s/%s.json.metadata',
+                            $component->id,
+                            $configuration->id
+                        ),
+                        (string) json_encode($metadataData)
+                    );
                 }
             }
         }
