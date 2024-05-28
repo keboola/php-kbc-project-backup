@@ -496,7 +496,6 @@ class S3BackupTest extends TestCase
     {
         $bucketId = $this->sapiClient->createBucket('main', Client::STAGE_IN);
 
-        $this->sapiClient->setBucketAttribute($bucketId, 'key', 'value', true);
         $this->sapiClient->shareBucket($bucketId, ['sharing' => 'organization']);
 
         $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
@@ -525,8 +524,8 @@ class S3BackupTest extends TestCase
         ]);
         $buckets = json_decode((string) file_get_contents((string) $targetFile), true);
 
-        self::assertCount(2, $buckets);
-        self::assertNotEmpty($buckets[1]['sourceBucket']);
+        self::assertCount(1, $buckets);
+        self::assertArrayNotHasKey('sourceBucket', current($buckets));
 
         $targetFile = $temp->createTmpFile('tables.json');
         $this->s3Client->getObject([
@@ -537,8 +536,8 @@ class S3BackupTest extends TestCase
 
         $tables = json_decode((string) file_get_contents((string) $targetFile), true);
 
-        self::assertCount(2, $tables);
-        self::assertNotEmpty($tables[1]['sourceTable']);
+        self::assertCount(1, $tables);
+        self::assertArrayNotHasKey('sourceTable', current($tables));
     }
 
     public function testExecuteMetadata(): void
