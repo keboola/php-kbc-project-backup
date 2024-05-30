@@ -98,6 +98,11 @@ abstract class Backup
             throw new SkipTableException();
         }
 
+        if ($table['bucket']['hasExternalSchema']) {
+            $this->logger->warning(sprintf('Skipping table %s (external schema)', $table['id']));
+            throw new SkipTableException();
+        }
+
         if (!empty($table['sourceTable'])) {
             $this->logger->warning(sprintf('Skipping table %s (Data Catalog)', $table['id']));
             throw new SkipTableException();
@@ -126,6 +131,7 @@ abstract class Backup
 
         $buckets = $this->sapiClient->listBuckets(['include' => 'metadata']);
         $buckets = array_filter($buckets, fn($bucket) => empty($bucket['sourceBucket']));
+        $buckets = array_filter($buckets, fn($bucket) => $bucket['hasExternalSchema'] === false);
 
         $this->putToStorage(
             'buckets.json',
