@@ -13,6 +13,7 @@ use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\DevBranches;
+use Keboola\StorageApi\DevBranchesMetadata;
 use Keboola\StorageApi\HandlerStack;
 use Keboola\StorageApi\Options\Components\ListConfigurationMetadataOptions;
 use Keboola\StorageApi\Options\GetFileOptions;
@@ -52,6 +53,16 @@ abstract class Backup
      * @param string|resource $content
      */
     abstract protected function putToStorage(string $name, $content): void;
+
+    public function backupProjectMetadata(): void
+    {
+        $devBranchMetadata = new DevBranchesMetadata($this->branchAwareClient);
+
+        $this->putToStorage(
+            'defaultBranchMetadata.json',
+            (string) json_encode($devBranchMetadata->listBranchMetadata()),
+        );
+    }
 
     public function backupTable(string $tableId): void
     {

@@ -10,6 +10,7 @@ use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\DevBranches;
+use Keboola\StorageApi\DevBranchesMetadata;
 use Keboola\StorageApi\Metadata;
 use Keboola\StorageApi\Options\Components\Configuration;
 use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
@@ -28,7 +29,7 @@ class AbsBackupTest extends TestCase
 
     protected Client $sapiClient;
 
-    protected Client $branchAwareClient;
+    protected BranchAwareClient $branchAwareClient;
 
     private BlobRestProxy $absClient;
 
@@ -607,6 +608,41 @@ class AbsBackupTest extends TestCase
         self::assertTrue(in_array('tables.json', $listBlobs));
         self::assertTrue(in_array('configurations.json', $listBlobs));
         self::assertCount(3, $listBlobs);
+    }
+
+    public function testBackupDefaultBranchMetadata(): void
+    {
+        $devBranchMetadata = [
+            [
+                'key' => 'KBC.projectDescription',
+                'value' => 'project description',
+            ],
+        ];
+
+        $branchMetadata = new DevBranchesMetadata($this->branchAwareClient);
+        foreach ($branchMetadata->listBranchMetadata() as $item) {
+            $branchMetadata->deleteBranchMetadata((int) $item['id']);
+        }
+        $branchMetadata->addBranchMetadata($devBranchMetadata);
+
+        $backup = new AbsBackup(
+            $this->sapiClient,
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+        );
+        $backup->backupProjectMetadata();
+
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'defaultBranchMetadata.json'
+        );
+        $data = json_decode(
+            (string) stream_get_contents($targetContents->getContentStream()),
+            true
+        );
+
+        self::assertEquals('KBC.projectDescription', $data[0]['key']);
+        self::assertEquals('project description', $data[0]['value']);
     }
 
     private function cleanupAbs(): void

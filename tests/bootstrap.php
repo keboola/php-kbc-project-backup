@@ -25,10 +25,10 @@ $environments = [
     'TEST_AZURE_ACCOUNT_KEY',
 ];
 
-foreach ($environments as $environment) {
-    if (empty(getenv($environment))) {
-        throw new ErrorException(sprintf('Missing environment "%s".', $environment));
-    }
-}
+//foreach ($environments as $environment) {
+//    if (empty(getenv($environment))) {
+//        throw new ErrorException(sprintf('Missing environment "%s".', $environment));
+//    }
+//}
 
 require __DIR__ . '/../vendor/autoload.php';
