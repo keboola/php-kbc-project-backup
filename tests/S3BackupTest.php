@@ -10,6 +10,7 @@ use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\DevBranches;
+use Keboola\StorageApi\DevBranchesMetadata;
 use Keboola\StorageApi\Metadata;
 use Keboola\StorageApi\Options\Components\Configuration;
 use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
@@ -25,7 +26,7 @@ class S3BackupTest extends TestCase
 
     protected Client $sapiClient;
 
-    protected Client $branchAwareClient;
+    protected BranchAwareClient $branchAwareClient;
 
     private S3Client $s3Client;
 
@@ -624,6 +625,44 @@ class S3BackupTest extends TestCase
         self::assertTrue(in_array('backup/tables.json', $keys));
         self::assertTrue(in_array('backup/configurations.json', $keys));
         self::assertCount(3, $keys);
+    }
+
+    public function testBackupDefaultBranchMetadata(): void
+    {
+        $devBranchMetadata = [
+            [
+                'key' => 'KBC.projectDescription',
+                'value' => 'project description',
+            ],
+        ];
+
+        $branchMetadata = new DevBranchesMetadata($this->branchAwareClient);
+        foreach ($branchMetadata->listBranchMetadata() as $item) {
+            $branchMetadata->deleteBranchMetadata((int) $item['id']);
+        }
+        $branchMetadata->addBranchMetadata($devBranchMetadata);
+
+        $backup = new S3Backup(
+            $this->sapiClient,
+            $this->s3Client,
+            (string) getenv('TEST_AWS_S3_BUCKET'),
+            'backup'
+        );
+        $backup->backupProjectMetadata();
+
+        $temp = new Temp();
+        $temp->initRunFolder();
+
+        $targetFile = $temp->createTmpFile('defaultBranchMetadata.json');
+        $this->s3Client->getObject([
+            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+            'Key' => 'backup/defaultBranchMetadata.json',
+            'SaveAs' => (string) $targetFile,
+        ]);
+        $data = json_decode((string) file_get_contents((string) $targetFile), true);
+
+        self::assertEquals('KBC.projectDescription', $data[0]['key']);
+        self::assertEquals('project description', $data[0]['value']);
     }
 
     private function cleanupS3(): void
