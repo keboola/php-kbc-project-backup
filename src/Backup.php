@@ -263,7 +263,7 @@ abstract class Backup
 
             $this->putToStorage(
                 sprintf('files/%s', $file['name']),
-                file_get_contents($file['url']),
+                (string) file_get_contents($file['url']),
             );
         }
     }
