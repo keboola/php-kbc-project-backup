@@ -251,6 +251,22 @@ abstract class Backup
         }
     }
 
+    public function backupPermanentFiles(): void
+    {
+        $this->logger->info('Exporting permanent files');
+
+        $files = $this->sapiClient->listFiles();
+        foreach ($files as $file) {
+            if (!is_null($file['maxAgeDays'])) {
+                continue;
+            }
+
+            $this->putToStorage(
+                sprintf('files/%s', $file['name']),
+                file_get_contents($file['url']),
+            );
+        }
+    }
     protected function getFileClient(array $fileInfo): IFileClient
     {
         if (isset($fileInfo['credentials'])) {

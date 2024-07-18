@@ -11,7 +11,7 @@
   "require": {
     "PHP": "^7.4",
     "keboola/php-temp": "^1.0.0",
-    "keboola/storage-api-client": "^12.9",
+    "keboola/storage-api-client": "^14.21",
     "monolog/monolog": "^1.23",
     "microsoft/azure-storage-blob": "^1.5",
     "keboola/php-file-storage-utils": "^0.2.2"

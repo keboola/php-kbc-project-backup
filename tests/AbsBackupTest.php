@@ -15,6 +15,7 @@ use Keboola\StorageApi\Metadata;
 use Keboola\StorageApi\Options\Components\Configuration;
 use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
+use Keboola\StorageApi\Options\FileUploadOptions;
 use Keboola\Temp\Temp;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
 use MicrosoftAzure\Storage\Blob\Models\Blob;
@@ -643,6 +644,37 @@ class AbsBackupTest extends TestCase
 
         self::assertEquals('KBC.projectDescription', $data[0]['key']);
         self::assertEquals('project description', $data[0]['value']);
+    }
+
+    public function testBackupPermanentFiles(): void
+    {
+        $fileContent = 'test-peramnent-file';
+        foreach ($this->sapiClient->listFiles() as $listFile) {
+            $this->sapiClient->deleteFile($listFile['id']);
+        }
+        $tmp = new Temp();
+        $file = $tmp->createFile('test.txt');
+        file_put_contents($file->getPathname(), $fileContent);
+
+        $fileOption = new FileUploadOptions();
+        $fileOption->setIsPermanent(true);
+
+        $this->sapiClient->uploadFile($file->getPathname(), $fileOption);
+
+        $backup = new AbsBackup(
+            $this->sapiClient,
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+        );
+        $backup->backupPermanentFiles();
+
+        $targetContents = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'files/test.txt',
+        );
+        $data = (string) stream_get_contents($targetContents->getContentStream());
+
+        self::assertEquals($fileContent, $data);
     }
 
     private function cleanupAbs(): void
