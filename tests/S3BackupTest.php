@@ -678,6 +678,7 @@ class S3BackupTest extends TestCase
 
         $fileOption = new FileUploadOptions();
         $fileOption->setIsPermanent(true);
+        $fileOption->setTags(['tag1', 'tag2']);
 
         $this->sapiClient->uploadFile($file->getPathname(), $fileOption);
 
@@ -691,6 +692,15 @@ class S3BackupTest extends TestCase
 
         $temp = new Temp();
         $temp->initRunFolder();
+
+        $targetFile = $temp->createTmpFile('permanentFiles.json');
+        $this->s3Client->getObject([
+            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+            'Key' => 'backup/permanentFiles.json',
+            'SaveAs' => (string) $targetFile,
+        ]);
+        $data = (string) file_get_contents((string) $targetFile);
+        self::assertEquals('[{"name":"test.txt","tags":["tag1","tag2"]}]', $data);
 
         $targetFile = $temp->createTmpFile('test.txt');
         $this->s3Client->getObject([

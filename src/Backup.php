@@ -266,7 +266,10 @@ abstract class Backup
                 sprintf('files/%s', $file['name']),
                 (string) file_get_contents($file['url']),
             );
-            $permanentFiles[] = $file['name'];
+            $permanentFiles[] = [
+                'name'=> $file['name'],
+                'tags' => $file['tags'],
+            ];
         }
 
         $this->putToStorage('permanentFiles.json', (string) json_encode($permanentFiles));

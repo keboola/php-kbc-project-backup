@@ -658,6 +658,7 @@ class AbsBackupTest extends TestCase
 
         $fileOption = new FileUploadOptions();
         $fileOption->setIsPermanent(true);
+        $fileOption->setTags(['tag1', 'tag2']);
 
         $this->sapiClient->uploadFile($file->getPathname(), $fileOption);
 
@@ -668,11 +669,18 @@ class AbsBackupTest extends TestCase
         );
         $backup->backupPermanentFiles();
 
-        $targetContents = $this->absClient->getBlob(
+        $listContent = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'permanentFiles.json',
+        );
+        $data = (string) stream_get_contents($listContent->getContentStream());
+        self::assertEquals('[{"name":"test.txt","tags":["tag1","tag2"]}]', $data);
+
+        $targetContent = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
             'files/test.txt',
         );
-        $data = (string) stream_get_contents($targetContents->getContentStream());
+        $data = (string) stream_get_contents($targetContent->getContentStream());
 
         self::assertEquals($fileContent, $data);
     }
