@@ -16,6 +16,7 @@ use Keboola\StorageApi\Options\Components\Configuration;
 use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
 use Keboola\ProjectBackup\S3Backup;
+use Keboola\StorageApi\Options\FileUploadOptions;
 use Keboola\Temp\Temp;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -663,6 +664,53 @@ class S3BackupTest extends TestCase
 
         self::assertEquals('KBC.projectDescription', $data[0]['key']);
         self::assertEquals('project description', $data[0]['value']);
+    }
+
+    public function testBackupPermanentFiles(): void
+    {
+        $fileContent = 'test-permanent-file';
+        foreach ($this->sapiClient->listFiles() as $listFile) {
+            $this->sapiClient->deleteFile($listFile['id']);
+        }
+        $tmp = new Temp();
+        $file = $tmp->createFile('test.txt');
+        file_put_contents($file->getPathname(), $fileContent);
+
+        $fileOption = new FileUploadOptions();
+        $fileOption->setIsPermanent(true);
+        $fileOption->setTags(['tag1', 'tag2']);
+
+        $this->sapiClient->uploadFile($file->getPathname(), $fileOption);
+
+        $backup = new S3Backup(
+            $this->sapiClient,
+            $this->s3Client,
+            (string) getenv('TEST_AWS_S3_BUCKET'),
+            'backup'
+        );
+        $backup->backupPermanentFiles();
+
+        $temp = new Temp();
+        $temp->initRunFolder();
+
+        $targetFile = $temp->createTmpFile('permanentFiles.json');
+        $this->s3Client->getObject([
+            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+            'Key' => 'backup/permanentFiles.json',
+            'SaveAs' => (string) $targetFile,
+        ]);
+        $data = (string) file_get_contents((string) $targetFile);
+        self::assertEquals('[{"name":"test.txt","tags":["tag1","tag2"]}]', $data);
+
+        $targetFile = $temp->createTmpFile('test.txt');
+        $this->s3Client->getObject([
+            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+            'Key' => 'backup/files/test.txt',
+            'SaveAs' => (string) $targetFile,
+        ]);
+        $data = (string) file_get_contents((string) $targetFile);
+
+        self::assertEquals($fileContent, $data);
     }
 
     private function cleanupS3(): void
