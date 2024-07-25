@@ -668,7 +668,7 @@ class S3BackupTest extends TestCase
 
     public function testBackupPermanentFiles(): void
     {
-        $fileContent = 'test-peramnent-file';
+        $fileContent = 'test-permanent-file';
         foreach ($this->sapiClient->listFiles() as $listFile) {
             $this->sapiClient->deleteFile($listFile['id']);
         }
