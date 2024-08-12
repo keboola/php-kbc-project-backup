@@ -681,7 +681,7 @@ class S3BackupTest extends TestCase
         $fileOption->setTags(['tag1', 'tag2']);
 
         $this->sapiClient->uploadFile($file->getPathname(), $fileOption);
-
+        sleep(1);
         $backup = new S3Backup(
             $this->sapiClient,
             $this->s3Client,
