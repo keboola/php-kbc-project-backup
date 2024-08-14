@@ -22,7 +22,7 @@ class S3Backup extends Backup
         S3Client $s3Client,
         string $bucket,
         string $path,
-        ?LoggerInterface $logger = null
+        ?LoggerInterface $logger = null,
     ) {
         $this->bucket = $bucket;
         $this->s3Client = $s3Client;
@@ -48,7 +48,7 @@ class S3Backup extends Backup
         $this->s3Client->upload(
             $this->bucket,
             $this->path . $name,
-            $content
+            $content,
         );
     }
 }
