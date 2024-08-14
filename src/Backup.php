@@ -114,7 +114,7 @@ abstract class Backup
             throw new SkipTableException();
         }
 
-        if (!empty($table['sourceTable'])) {
+        if (!empty($table['bucket']['sourceBucket'])) {
             $this->logger->warning(sprintf('Skipping table %s (Data Catalog)', $table['id']));
             throw new SkipTableException();
         }
@@ -153,7 +153,7 @@ abstract class Backup
         $tables = $this->sapiClient->listTables(null, [
             'include' => 'columns,buckets,metadata,columnMetadata',
         ]);
-        $tables = array_filter($tables, fn($table) => empty($table['sourceTable']));
+        $tables = array_filter($tables, fn($table) => empty($table['bucket']['sourceBucket']));
 
         $this->putToStorage('tables.json', (string) json_encode($tables));
     }
