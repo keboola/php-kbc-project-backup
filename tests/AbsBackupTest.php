@@ -613,7 +613,9 @@ class AbsBackupTest extends TestCase
         $backup->backupTablesMetadata();
         $backup->backupConfigs();
 
-        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'));
+        $options = new ListBlobsOptions();
+        $options->setPrefix('');
+        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'), $options);
         $listBlobs = array_map(fn(Blob $v) => $v->getName(), $blobs->getBlobs());
 
         self::assertTrue(in_array('buckets.json', $listBlobs));
