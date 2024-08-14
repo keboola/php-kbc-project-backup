@@ -1,59 +1,69 @@
 {
-  "name": "keboola/kbc-project-backup",
-  "description": "Backup KBC project",
-  "license": "MIT",
-  "authors": [
-    {
-      "name": "Erik Zigo",
-      "email": "erik.zigo@keboola.com"
-    }
-  ],
-  "require": {
-    "php": "^8.2",
-    "keboola/php-temp": "^2.0",
-    "keboola/storage-api-client": "^15.2",
-    "monolog/monolog": "^2.3",
-    "microsoft/azure-storage-blob": "^1.5",
-    "keboola/php-file-storage-utils": "^0.2.6"
-  },
-  "require-dev": {
-    "phpstan/phpstan": "^1.11",
-    "keboola/coding-standard": "^15.0",
-    "php-parallel-lint/php-parallel-lint": "^1.4",
-    "phpunit/phpunit": "^11.3"
-  },
-  "autoload": {
-    "psr-4": {
-      "Keboola\\ProjectBackup\\": "src/"
-    }
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "Keboola\\ProjectBackup\\Tests\\": "tests/"
-    }
-  },
-  "scripts": {
-    "phpunit": "phpunit",
-    "phplint": "parallel-lint -j 10 --exclude vendor .",
-    "phpcs": "phpcs -n --ignore=vendor --extensions=php .",
-    "phpstan": "phpstan analyse ./src ./tests --level=max --no-progress -c phpstan.neon",
-    "tests": [
-      "@phpunit"
+    "name": "keboola/kbc-project-backup",
+    "description": "Backup KBC project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Erik Zigo",
+            "email": "erik.zigo@keboola.com"
+        }
     ],
-    "build": [
-      "@phplint",
-      "@phpcs",
-      "@phpstan",
-      "@tests"
-    ],
-    "ci": [
-      "@composer validate --no-check-publish --no-check-all",
-      "@build"
-    ]
-  },
-  "config": {
-    "allow-plugins": {
-      "dealerdirect/phpcodesniffer-composer-installer": true
+    "require": {
+        "php": "^8.2",
+        "keboola/php-temp": "^2.0",
+        "keboola/storage-api-client": "^15.2",
+        "monolog/monolog": "^2.3",
+        "microsoft/azure-storage-blob": "^1.5",
+        "keboola/php-file-storage-utils": "^0.2.6"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^1.11",
+        "keboola/coding-standard": "^15.0",
+        "php-parallel-lint/php-parallel-lint": "^1.4",
+        "phpunit/phpunit": "^11.3",
+        "cweagans/composer-patches": "^1.7",
+        "symplify/vendor-patches": "^11.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Keboola\\ProjectBackup\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Keboola\\ProjectBackup\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "phpunit": "phpunit",
+        "phplint": "parallel-lint -j 10 --exclude vendor .",
+        "phpcs": "phpcs -n --ignore=vendor --extensions=php .",
+        "phpstan": "phpstan analyse ./src ./tests --level=max --no-progress -c phpstan.neon",
+        "tests": [
+            "@phpunit"
+        ],
+        "build": [
+            "@phplint",
+            "@phpcs",
+            "@phpstan",
+            "@tests"
+        ],
+        "ci": [
+            "@composer validate --no-check-publish --no-check-all",
+            "@build"
+        ]
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "cweagans/composer-patches": true
+        }
+    },
+    "extra": {
+        "patches": {
+            "microsoft/azure-storage-common": [
+                "patches/microsoft-azure-storage-common-src-common-internal-servicerestproxy-php.patch"
+            ]
+        }
     }
-  }
 }
