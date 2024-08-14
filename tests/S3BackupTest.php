@@ -18,6 +18,7 @@ use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
 use Keboola\StorageApi\Options\FileUploadOptions;
 use Keboola\Temp\Temp;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -337,9 +338,7 @@ class S3BackupTest extends TestCase
         self::assertEquals(1, count($targetConfiguration['rows'][0]['_versions']));
     }
 
-    /**
-     * @dataProvider largeConfigurationsProvider
-     */
+    #[DataProvider('largeConfigurationsProvider')]
     public function testLargeConfigurations(int $configurationRowsCount): void
     {
         $component = new Components($this->sapiClient);
@@ -405,7 +404,7 @@ class S3BackupTest extends TestCase
         $this->assertEmpty($lastRow['state']);
     }
 
-    public function largeConfigurationsProvider(): array
+    public static function largeConfigurationsProvider(): array
     {
         return [
             [

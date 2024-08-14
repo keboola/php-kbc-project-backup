@@ -22,6 +22,7 @@ use MicrosoftAzure\Storage\Blob\Models\Blob;
 use MicrosoftAzure\Storage\Blob\Models\Container;
 use MicrosoftAzure\Storage\Blob\Models\ListBlobsOptions;
 use MicrosoftAzure\Storage\Common\Middlewares\RetryMiddlewareFactory;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -336,9 +337,7 @@ class AbsBackupTest extends TestCase
         self::assertEquals(1, count($targetConfiguration['rows'][0]['_versions']));
     }
 
-    /**
-     * @dataProvider largeConfigurationsProvider
-     */
+    #[DataProvider('largeConfigurationsProvider')]
     public function testLargeConfigurations(int $configurationRowsCount): void
     {
         $component = new Components($this->sapiClient);
@@ -401,7 +400,7 @@ class AbsBackupTest extends TestCase
         $this->assertEmpty($lastRow['state']);
     }
 
-    public function largeConfigurationsProvider(): array
+    public static function largeConfigurationsProvider(): array
     {
         return [
             [
