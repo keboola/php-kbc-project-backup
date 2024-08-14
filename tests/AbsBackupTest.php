@@ -20,6 +20,7 @@ use Keboola\Temp\Temp;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
 use MicrosoftAzure\Storage\Blob\Models\Blob;
 use MicrosoftAzure\Storage\Blob\Models\Container;
+use MicrosoftAzure\Storage\Blob\Models\ListBlobsOptions;
 use MicrosoftAzure\Storage\Common\Middlewares\RetryMiddlewareFactory;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -699,7 +700,9 @@ class AbsBackupTest extends TestCase
 
     private function cleanupAbs(): void
     {
-        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'));
+        $options = new ListBlobsOptions();
+        $options->setPrefix('');
+        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'), $options);
 
         foreach ($blobs->getBlobs() as $blob) {
             $this->absClient->deleteBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), $blob->getName());
