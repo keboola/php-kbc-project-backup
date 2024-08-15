@@ -18,7 +18,7 @@ class AbsBackup extends Backup
         StorageApi $sapiClient,
         BlobRestProxy $absClient,
         string $path,
-        ?LoggerInterface $logger = null
+        ?LoggerInterface $logger = null,
     ) {
         $this->absClient = $absClient;
         $this->path = $path;
@@ -34,7 +34,7 @@ class AbsBackup extends Backup
         $this->absClient->createBlockBlob(
             $this->path,
             $name,
-            $content
+            $content,
         );
     }
 }

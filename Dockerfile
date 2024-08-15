@@ -1,4 +1,4 @@
-FROM php:7.4
+FROM php:8.2-cli
 
 ARG COMPOSER_FLAGS="--prefer-dist --no-interaction"
 ARG DEBIAN_FRONTEND=noninteractive
@@ -14,11 +14,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         locales \
         unzip \
+        libicu-dev \
 	&& rm -r /var/lib/apt/lists/* \
 	&& sed -i 's/^# *\(en_US.UTF-8\)/\1/' /etc/locale.gen \
 	&& locale-gen \
 	&& chmod +x /tmp/composer-install.sh \
 	&& /tmp/composer-install.sh
+
+RUN docker-php-ext-configure intl \
+    && docker-php-ext-install intl
 
 RUN echo "memory_limit = -1" >> /usr/local/etc/php/php.ini
 
@@ -29,6 +33,7 @@ ENV LC_ALL=en_US.UTF-8
 ## Composer - deps always cached unless changed
 # First copy only composer files
 COPY composer.* /code/
+COPY patches /code/patches
 
 # Download dependencies, but don't run scripts or init autoloaders as the app is missing
 RUN composer install $COMPOSER_FLAGS --no-scripts --no-autoloader

@@ -20,7 +20,9 @@ use Keboola\Temp\Temp;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
 use MicrosoftAzure\Storage\Blob\Models\Blob;
 use MicrosoftAzure\Storage\Blob\Models\Container;
+use MicrosoftAzure\Storage\Blob\Models\ListBlobsOptions;
 use MicrosoftAzure\Storage\Common\Middlewares\RetryMiddlewareFactory;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -52,7 +54,7 @@ class AbsBackupTest extends TestCase
             [
                 'url' => getenv('TEST_AZURE_STORAGE_API_URL'),
                 'token' => getenv('TEST_AZURE_STORAGE_API_TOKEN'),
-            ]
+            ],
         );
 
         $this->cleanupKbcProject();
@@ -60,10 +62,10 @@ class AbsBackupTest extends TestCase
         $this->absClient = BlobRestProxy::createBlobService(sprintf(
             'DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net',
             (string) getenv('TEST_AZURE_ACCOUNT_NAME'),
-            (string) getenv('TEST_AZURE_ACCOUNT_KEY')
+            (string) getenv('TEST_AZURE_ACCOUNT_KEY'),
         ));
         $this->absClient->pushMiddleware(
-            RetryMiddlewareFactory::create()
+            RetryMiddlewareFactory::create(),
         );
 
         $containers = $this->absClient->listContainers();
@@ -90,7 +92,7 @@ class AbsBackupTest extends TestCase
         $row = new ConfigurationRow($config);
         $row->setChangeDescription('Row 1');
         $row->setConfiguration(
-            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']]
+            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']],
         );
         $component->addConfigurationRow($row);
 
@@ -107,18 +109,19 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupConfigs(false);
 
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations.json'
+            'configurations.json',
         );
 
+        /** @var array $targetData */
         $targetData = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
         $targetComponent = [];
         foreach ($targetData as $component) {
@@ -127,6 +130,7 @@ class AbsBackupTest extends TestCase
                 break;
             }
         }
+        /** @var array $targetComponent */
         self::assertGreaterThan(0, count($targetComponent));
 
         $targetConfiguration = [];
@@ -135,6 +139,7 @@ class AbsBackupTest extends TestCase
                 $targetConfiguration = $configuration;
             }
         }
+        /** @var array $targetConfiguration */
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('Test Configuration', $targetConfiguration['description']);
         self::assertArrayNotHasKey('rows', $targetConfiguration);
@@ -142,12 +147,13 @@ class AbsBackupTest extends TestCase
         $configurationId = $targetConfiguration['id'];
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations/keboola.snowflake-transformation/' . $configurationId . '.json.metadata'
+            'configurations/keboola.snowflake-transformation/' . $configurationId . '.json.metadata',
         );
 
+        /** @var array $targetConfiguration */
         $targetConfiguration = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
 
         self::assertCount(1, $targetConfiguration);
@@ -170,35 +176,33 @@ class AbsBackupTest extends TestCase
         $row = new ConfigurationRow($config);
         $row->setChangeDescription('Row 1');
         $row->setConfiguration(
-            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']]
+            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']],
         );
         $component->addConfigurationRow($row);
 
         $row = new ConfigurationRow($config);
         $row->setChangeDescription('Row 2');
         $row->setConfiguration(
-            ['name' => 'test 2', 'backend' => 'docker', 'type' => 'r', 'queries' => ['bar']]
+            ['name' => 'test 2', 'backend' => 'docker', 'type' => 'r', 'queries' => ['bar']],
         );
         $component->addConfigurationRow($row);
 
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupConfigs(false);
 
-        $temp = new Temp();
-        $temp->initRunFolder();
-
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations.json'
+            'configurations.json',
         );
 
+        /** @var array $targetData */
         $targetData = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
         $targetComponent = [];
         foreach ($targetData as $component) {
@@ -207,6 +211,7 @@ class AbsBackupTest extends TestCase
                 break;
             }
         }
+        /** @var array $targetComponent */
         self::assertGreaterThan(0, count($targetComponent));
 
         $targetConfiguration = [];
@@ -215,6 +220,7 @@ class AbsBackupTest extends TestCase
                 $targetConfiguration = $configuration;
             }
         }
+        /** @var array $targetConfiguration */
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('Test Configuration', $targetConfiguration['description']);
         self::assertArrayNotHasKey('rows', $targetConfiguration);
@@ -222,12 +228,13 @@ class AbsBackupTest extends TestCase
         $configurationId = $targetConfiguration['id'];
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations/transformation/' . $configurationId . '.json'
+            'configurations/transformation/' . $configurationId . '.json',
         );
 
+        /** @var array $targetConfiguration */
         $targetConfiguration = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
 
         self::assertGreaterThan(0, count($targetConfiguration));
@@ -256,35 +263,33 @@ class AbsBackupTest extends TestCase
         $row = new ConfigurationRow($config);
         $row->setChangeDescription('Row 1');
         $row->setConfiguration(
-            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']]
+            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']],
         );
         $component->addConfigurationRow($row);
 
         $row = new ConfigurationRow($config);
         $row->setChangeDescription('Row 2');
         $row->setConfiguration(
-            ['name' => 'test 2', 'backend' => 'docker', 'type' => 'r', 'queries' => ['bar']]
+            ['name' => 'test 2', 'backend' => 'docker', 'type' => 'r', 'queries' => ['bar']],
         );
         $component->addConfigurationRow($row);
 
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupConfigs(true);
 
-        $temp = new Temp();
-        $temp->initRunFolder();
-
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations.json'
+            'configurations.json',
         );
 
+        /** @var array $targetData */
         $targetData = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
         $targetComponent = [];
         foreach ($targetData as $component) {
@@ -293,6 +298,7 @@ class AbsBackupTest extends TestCase
                 break;
             }
         }
+        /** @var array $targetComponent */
         self::assertGreaterThan(0, count($targetComponent));
 
         $targetConfiguration = [];
@@ -301,6 +307,7 @@ class AbsBackupTest extends TestCase
                 $targetConfiguration = $configuration;
             }
         }
+        /** @var array $targetConfiguration */
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('Test Configuration', $targetConfiguration['description']);
         self::assertArrayNotHasKey('rows', $targetConfiguration);
@@ -308,11 +315,12 @@ class AbsBackupTest extends TestCase
         $configurationId = $targetConfiguration['id'];
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations/transformation/' . $configurationId . '.json'
+            'configurations/transformation/' . $configurationId . '.json',
         );
+        /** @var array $targetConfiguration */
         $targetConfiguration = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
 
         self::assertGreaterThan(0, count($targetConfiguration));
@@ -329,9 +337,7 @@ class AbsBackupTest extends TestCase
         self::assertEquals(1, count($targetConfiguration['rows'][0]['_versions']));
     }
 
-    /**
-     * @dataProvider largeConfigurationsProvider
-     */
+    #[DataProvider('largeConfigurationsProvider')]
     public function testLargeConfigurations(int $configurationRowsCount): void
     {
         $component = new Components($this->sapiClient);
@@ -368,20 +374,18 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupConfigs();
 
-        $temp = new Temp();
-        $temp->initRunFolder();
-
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations/transformation/' . $config->getConfigurationId() . '.json'
+            'configurations/transformation/' . $config->getConfigurationId() . '.json',
         );
+        /** @var array $targetConfiguration */
         $targetConfiguration = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
         self::assertGreaterThan(0, count($targetConfiguration));
         self::assertEquals('test-configuration', $targetConfiguration['name']);
@@ -396,7 +400,7 @@ class AbsBackupTest extends TestCase
         $this->assertEmpty($lastRow['state']);
     }
 
-    public function largeConfigurationsProvider(): array
+    public static function largeConfigurationsProvider(): array
     {
         return [
             [
@@ -421,7 +425,7 @@ class AbsBackupTest extends TestCase
             [
                 'dummyObject' => new stdClass(),
                 'dummyArray' => [],
-            ]
+            ],
         );
         $configData = $component->addConfiguration($config);
         $config->setConfigurationId($configData['id']);
@@ -436,7 +440,7 @@ class AbsBackupTest extends TestCase
                 'queries' => ['foo'],
                 'dummyObject' => new stdClass(),
                 'dummyArray' => [],
-            ]
+            ],
         );
         $component->addConfigurationRow($row);
 
@@ -450,24 +454,22 @@ class AbsBackupTest extends TestCase
                 'queries' => ['bar'],
                 'dummyObject' => new stdClass(),
                 'dummyArray' => [],
-            ]
+            ],
         );
         $component->addConfigurationRow($row);
 
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupConfigs(false);
 
-        $temp = new Temp();
-        $temp->initRunFolder();
-
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations.json'
+            'configurations.json',
         );
+        /** @var array $targetData */
         $targetData = json_decode((string) stream_get_contents($targetContents->getContentStream()));
         $targetConfiguration = $targetData[0]->configurations[0];
 
@@ -477,8 +479,9 @@ class AbsBackupTest extends TestCase
         $configurationId = $targetConfiguration->id;
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'configurations/transformation/' . $configurationId . '.json'
+            'configurations/transformation/' . $configurationId . '.json',
         );
+        /** @var stdClass $targetConfiguration */
         $targetConfiguration = json_decode((string) stream_get_contents($targetContents->getContentStream()));
 
         self::assertEquals(new stdClass(), $targetConfiguration->rows[0]->configuration->dummyObject);
@@ -491,7 +494,11 @@ class AbsBackupTest extends TestCase
 
         $this->sapiClient->shareBucket($bucketId, ['sharing' => 'organization']);
 
-        $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
+        $this->sapiClient->createTableAsync(
+            'in.c-main',
+            'sample',
+            new CsvFile(__DIR__ . '/data/sample.csv'),
+        );
 
         $token = $this->sapiClient->verifyToken();
         $projectId = $token['owner']['id'];
@@ -501,18 +508,18 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupTablesMetadata();
 
         $temp = new Temp();
-        $temp->initRunFolder();
 
         $targetContents = $this->absClient->getBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), 'buckets.json');
 
+        /** @var array $buckets */
         $buckets = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
 
         self::assertCount(1, $buckets);
@@ -520,9 +527,10 @@ class AbsBackupTest extends TestCase
 
         $targetContents = $this->absClient->getBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), 'tables.json');
 
+        /** @var array $tables */
         $tables = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
 
         self::assertCount(1, $tables);
@@ -532,7 +540,11 @@ class AbsBackupTest extends TestCase
     public function testExecuteMetadata(): void
     {
         $this->sapiClient->createBucket('main', Client::STAGE_IN);
-        $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
+        $this->sapiClient->createTableAsync(
+            'in.c-main',
+            'sample',
+            new CsvFile(__DIR__ . '/data/sample.csv'),
+        );
 
         $metadata = new Metadata($this->sapiClient);
         $metadata->postBucketMetadata('in.c-main', 'system', [
@@ -557,31 +569,30 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupTablesMetadata();
 
-        $temp = new Temp();
-        $temp->initRunFolder();
-
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'buckets.json'
+            'buckets.json',
         );
+        /** @var array $data */
         $data = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
         $this->assertEquals('bucketKey', $data[0]['metadata'][0]['key']);
         $this->assertEquals('bucketValue', $data[0]['metadata'][0]['value']);
 
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'tables.json'
+            'tables.json',
         );
+        /** @var array $data */
         $data = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
         $this->assertEquals('tableKey', $data[0]['metadata'][0]['key']);
         $this->assertEquals('tableValue', $data[0]['metadata'][0]['value']);
@@ -592,17 +603,19 @@ class AbsBackupTest extends TestCase
     public function testExecuteWithoutPath(): void
     {
         $this->sapiClient->createBucket('main', Client::STAGE_IN);
-        $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
+        $this->sapiClient->createTableAsync('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupTablesMetadata();
         $backup->backupConfigs();
 
-        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'));
+        $options = new ListBlobsOptions();
+        $options->setPrefix('');
+        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'), $options);
         $listBlobs = array_map(fn(Blob $v) => $v->getName(), $blobs->getBlobs());
 
         self::assertTrue(in_array('buckets.json', $listBlobs));
@@ -629,17 +642,18 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupProjectMetadata();
 
         $targetContents = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
-            'defaultBranchMetadata.json'
+            'defaultBranchMetadata.json',
         );
+        /** @var array $data */
         $data = json_decode(
             (string) stream_get_contents($targetContents->getContentStream()),
-            true
+            true,
         );
 
         self::assertEquals('KBC.projectDescription', $data[0]['key']);
@@ -665,7 +679,7 @@ class AbsBackupTest extends TestCase
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
-            (string) getenv('TEST_AZURE_CONTAINER_NAME')
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
         $backup->backupPermanentFiles();
 
@@ -687,7 +701,9 @@ class AbsBackupTest extends TestCase
 
     private function cleanupAbs(): void
     {
-        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'));
+        $options = new ListBlobsOptions();
+        $options->setPrefix('');
+        $blobs = $this->absClient->listBlobs((string) getenv('TEST_AZURE_CONTAINER_NAME'), $options);
 
         foreach ($blobs->getBlobs() as $blob) {
             $this->absClient->deleteBlob((string) getenv('TEST_AZURE_CONTAINER_NAME'), $blob->getName());

@@ -34,7 +34,6 @@ class S3FileClient implements IFileClient
             ],
         ]);
         $this->tmp = new Temp();
-        $this->tmp->initRunFolder();
         $this->tmpFilePath = $this->tmp->getTmpFolder() . DIRECTORY_SEPARATOR . uniqid('sapi-export-');
     }
 
@@ -46,18 +45,18 @@ class S3FileClient implements IFileClient
             $filePath = sprintf(
                 '%s_%s',
                 $this->tmpFilePath,
-                md5(str_replace('/', '_', $fileKey))
+                md5(str_replace('/', '_', $fileKey)),
             );
         } else {
             $fileKey = $this->fileKey;
             $filePath = $this->tmp->getTmpFolder() . DIRECTORY_SEPARATOR . uniqid('table');
         }
 
-        $this->s3Client->getObject(array(
+        $this->s3Client->getObject([
             'Bucket' => $this->bucket,
             'Key' => $fileKey,
-            'SaveAs' => $filePath
-        ));
+            'SaveAs' => $filePath,
+        ]);
 
         $file = fopen($filePath, 'r');
         if (!$file) {

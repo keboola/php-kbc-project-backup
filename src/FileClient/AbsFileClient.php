@@ -19,7 +19,7 @@ class AbsFileClient implements IFileClient
     public function __construct(array $fileInfo)
     {
         $this->absClient = ClientFactory::createClientFromConnectionString(
-            $fileInfo['absCredentials']['SASConnectionString']
+            $fileInfo['absCredentials']['SASConnectionString'],
         );
         $this->container = $fileInfo['absPath']['container'];
         $this->name = $fileInfo['absPath']['name'];
@@ -38,7 +38,7 @@ class AbsFileClient implements IFileClient
         return $this->absClient
             ->getBlob(
                 $this->container,
-                $filePath
+                $filePath,
             )
             ->getContentStream()
         ;

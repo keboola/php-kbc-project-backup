@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup;
 
 use Exception;
+use GuzzleHttp\Client as GuzzleClient;
 use Keboola\ProjectBackup\Exception\SkipTableException;
 use Keboola\ProjectBackup\FileClient\AbsFileClient;
 use Keboola\ProjectBackup\FileClient\IFileClient;
@@ -20,6 +21,7 @@ use Keboola\StorageApi\Options\GetFileOptions;
 use Keboola\Temp\Temp;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use stdClass;
 
 abstract class Backup
 {
@@ -45,7 +47,7 @@ abstract class Backup
             [
                 'url' => $sapiClient->getApiUrl(),
                 'token' => $sapiClient->getTokenString(),
-            ]
+            ],
         );
     }
 
@@ -75,27 +77,32 @@ abstract class Backup
         $fileClient = $this->getFileClient($fileInfo);
         if ($fileInfo['isSliced'] === true) {
             // Download manifest with all sliced files
-            $client = new \GuzzleHttp\Client([
+            $client = new GuzzleClient([
                 'handler' => HandlerStack::create([
                     'backoffMaxTries' => 10,
                 ]),
             ]);
+            /** @var array $manifest */
             $manifest = json_decode($client->get($fileInfo['url'])->getBody()->getContents(), true);
 
+            /**
+             * @var int $i
+             * @var array $part
+             */
             foreach ($manifest['entries'] as $i => $part) {
                 $this->putToStorage(
                     sprintf(
                         '%s.part_%d.csv.gz',
                         str_replace('.', '/', $tableId),
-                        $i
+                        $i,
                     ),
-                    $fileClient->getFileContent($part)
+                    $fileClient->getFileContent($part),
                 );
             }
         } else {
             $this->putToStorage(
                 str_replace('.', '/', $tableId) . '.csv.gz',
-                $fileClient->getFileContent()
+                $fileClient->getFileContent(),
             );
         }
     }
@@ -132,7 +139,7 @@ abstract class Backup
 
         return (array) $this->sapiClient->getFile(
             $fileId['file']['id'],
-            (new GetFileOptions())->setFederationToken(true)
+            (new GetFileOptions())->setFederationToken(true),
         );
     }
 
@@ -163,7 +170,6 @@ abstract class Backup
         $this->logger->info('Exporting configurations');
 
         $tmp = new Temp();
-        $tmp->initRunFolder();
 
         $configurationsFile = $tmp->createFile('configurations.json');
         $versionsFile = $tmp->createFile('versions.json');
@@ -181,10 +187,12 @@ abstract class Backup
         $url = 'components';
         $url .= '?include=configuration,rows,state';
         $this->sapiClient->apiGet($url, $configurationsFile->getPathname());
+        /** @var array $configurations */
         $configurations = json_decode((string) file_get_contents($configurationsFile->getPathname()));
 
         $limit = self::CONFIGURATION_PAGING_LIMIT;
 
+        /** @var stdClass $component */
         foreach ($configurations as $component) {
             $this->logger->info(sprintf('Exporting %s configurations', $component->id));
 
@@ -197,6 +205,7 @@ abstract class Backup
                         $url .= '?include=name,description,configuration,state';
                         $url .= "&limit={$limit}&offset={$offset}";
                         $this->sapiClient->apiGet($url, $versionsFile->getPathname());
+                        /** @var array $versionsTmp */
                         $versionsTmp = json_decode((string) file_get_contents($versionsFile->getPathname()));
 
                         $versions = array_merge($versions, $versionsTmp);
@@ -215,6 +224,7 @@ abstract class Backup
                             $url .= '?include=configuration';
                             $url .= "&limit={$limit}&offset={$offset}";
                             $this->sapiClient->apiGet($url, $versionsFile->getPathname());
+                            /** @var array $versionsTmp */
                             $versionsTmp = json_decode((string) file_get_contents($versionsFile->getPathname()));
                             $versions = array_merge($versions, $versionsTmp);
                             $offset = $offset + $limit;
@@ -226,9 +236,9 @@ abstract class Backup
                     sprintf(
                         'configurations/%s/%s.json',
                         $component->id,
-                        $configuration->id
+                        $configuration->id,
                     ),
-                    (string) json_encode($configuration)
+                    (string) json_encode($configuration),
                 );
                 $metadata = new ListConfigurationMetadataOptions();
                 $metadata->setComponentId($component->id);
@@ -242,9 +252,9 @@ abstract class Backup
                         sprintf(
                             'configurations/%s/%s.json.metadata',
                             $component->id,
-                            $configuration->id
+                            $configuration->id,
                         ),
-                        (string) json_encode($metadataData)
+                        (string) json_encode($metadataData),
                     );
                 }
             }
