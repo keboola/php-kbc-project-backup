@@ -157,12 +157,20 @@ abstract class Backup
         );
 
         $this->logger->info('Exporting tables');
-        $tables = $this->sapiClient->listTables(null, [
+        $allTables = $this->sapiClient->listTables(null, [
             'include' => 'columns,buckets,metadata,columnMetadata',
         ]);
-        $tables = array_filter($tables, fn($table) => empty($table['bucket']['sourceBucket']));
+        $tables = array_filter($allTables, fn($table) => empty($table['bucket']['sourceBucket']));
+        $tablesWithSourceBucket = array_filter($allTables, fn($table) => !empty($table['bucket']['sourceBucket']));
 
-        $this->putToStorage('tables.json', (string) json_encode($tables));
+        $tablesToMigrate = array_filter($tables, function ($table) use ($tablesWithSourceBucket) {
+            return $table['isAlias'] === false
+                || ($table['isAlias'] === true && !in_array($table['sourceTable']['id'], array_map(function ($table)  {
+                    return $table['id'];
+                    }, $tablesWithSourceBucket)));
+        });
+
+        $this->putToStorage('tables.json', (string) json_encode($tablesToMigrate, JSON_PRETTY_PRINT));
     }
 
     public function backupConfigs(bool $includeVersions = true): void
