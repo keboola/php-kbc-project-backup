@@ -677,7 +677,7 @@ class AbsBackupTest extends TestCase
         $fileOption->setTags(['tag1', 'tag2']);
 
         $this->sapiClient->uploadFile($file->getPathname(), $fileOption);
-
+        sleep(3);
         $backup = new AbsBackup(
             $this->sapiClient,
             $this->absClient,
