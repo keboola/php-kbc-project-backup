@@ -284,6 +284,16 @@ abstract class Backup
 
         $this->putToStorage('permanentFiles.json', (string) json_encode($permanentFiles));
     }
+
+    public function backupTriggers(): void
+    {
+        $this->logger->info('Exporting triggers');
+
+        $triggers = $this->sapiClient->listTriggers();
+
+        $this->putToStorage('triggers.json', (string) json_encode($triggers));
+    }
+
     protected function getFileClient(array $fileInfo): IFileClient
     {
         if (isset($fileInfo['credentials'])) {
