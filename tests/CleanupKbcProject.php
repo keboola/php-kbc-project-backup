@@ -33,5 +33,9 @@ trait CleanupKbcProject
         foreach ($this->sapiClient->listBuckets() as $bucket) {
             $this->sapiClient->dropBucket($bucket['id'], ['force' => true]);
         }
+
+        foreach ($this->sapiClient->listTriggers() as $trigger) {
+            $this->sapiClient->deleteTrigger($trigger['id']);
+        }
     }
 }

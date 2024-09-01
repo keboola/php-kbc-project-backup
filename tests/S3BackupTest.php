@@ -17,6 +17,8 @@ use Keboola\StorageApi\Options\Components\Configuration;
 use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
 use Keboola\StorageApi\Options\FileUploadOptions;
+use Keboola\StorageApi\Options\TokenCreateOptions;
+use Keboola\StorageApi\Tokens;
 use Keboola\Temp\Temp;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -721,6 +723,89 @@ class S3BackupTest extends TestCase
         $data = (string) file_get_contents((string) $targetFile);
 
         self::assertEquals($fileContent, $data);
+    }
+    public function testBackupTriggers(): void
+    {
+        $bucketId = $this->sapiClient->createBucket('main', Client::STAGE_IN);
+        $tableId = $this->sapiClient->createTableAsync(
+            $bucketId,
+            'simple',
+            new CsvFile(__DIR__ . '/data/sample.csv'),
+        );
+
+        $component = new Components($this->branchAwareClient);
+
+        $configuration = new Configuration();
+        $configuration->setComponentId('keboola.orchestrator');
+        $configuration->setName('test-triggers');
+        $orchestration = $component->addConfiguration($configuration);
+
+        $token = new Tokens($this->sapiClient);
+        $tokenOptions = new TokenCreateOptions();
+        $tokenOptions->setDescription(sprintf('[_internal] Token for triggering %s', $orchestration['id']));
+        $tokenOptions->setCanManageBuckets(true);
+        $tokenOptions->setCanReadAllFileUploads(true);
+        $tokenData = $token->createToken($tokenOptions);
+
+        $this->sapiClient->createTrigger([
+            'component' => 'keboola.orchestrator',
+            'configurationId' => $orchestration['id'],
+            'runWithTokenId' => $tokenData['id'],
+            'tableIds' => [
+                $tableId,
+            ],
+            'coolDownPeriodMinutes' => 5,
+        ]);
+
+        $backup = new S3Backup(
+            $this->sapiClient,
+            $this->s3Client,
+            (string) getenv('TEST_AWS_S3_BUCKET'),
+            'backup',
+        );
+        $backup->backupTriggers();
+
+        $temp = new Temp();
+
+        $targetFile = $temp->createTmpFile('triggers.json');
+        $this->s3Client->getObject([
+            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+            'Key' => 'backup/triggers.json',
+            'SaveAs' => (string) $targetFile,
+        ]);
+        /** @var array{
+         *     id: string,
+         *     lastRun: string,
+         *     creatorToken: string,
+         *     runWithTokenId: int,
+         *     component: string,
+         *     configurationId: string,
+         *     coolDownPeriodMinutes: int,
+         *     tables: array{
+         *          tableId: string,
+         *     }[],
+         * } $data
+         */
+        $data = (array) json_decode((string) file_get_contents((string) $targetFile), true);
+        array_walk($data, function (&$item): void {
+            unset($item['id'], $item['lastRun'], $item['creatorToken']);
+        });
+
+        $expectedConfig = [
+            [
+                'runWithTokenId' => $tokenData['id'],
+                'component' => 'keboola.orchestrator',
+                'configurationId' => $orchestration['id'],
+                'coolDownPeriodMinutes' => 5,
+                'tables' => [
+                    [
+                        'tableId' => $tableId,
+                    ],
+                ],
+            ],
+        ];
+
+        self::assertEquals($expectedConfig, $data);
     }
 
     private function cleanupS3(): void

@@ -16,6 +16,8 @@ use Keboola\StorageApi\Options\Components\Configuration;
 use Keboola\StorageApi\Options\Components\ConfigurationMetadata;
 use Keboola\StorageApi\Options\Components\ConfigurationRow;
 use Keboola\StorageApi\Options\FileUploadOptions;
+use Keboola\StorageApi\Options\TokenCreateOptions;
+use Keboola\StorageApi\Tokens;
 use Keboola\Temp\Temp;
 use MicrosoftAzure\Storage\Blob\BlobRestProxy;
 use MicrosoftAzure\Storage\Blob\Models\Blob;
@@ -697,6 +699,85 @@ class AbsBackupTest extends TestCase
         $data = (string) stream_get_contents($targetContent->getContentStream());
 
         self::assertEquals($fileContent, $data);
+    }
+
+    public function testBackupTriggers(): void
+    {
+        $bucketId = $this->sapiClient->createBucket('main', Client::STAGE_IN);
+        $tableId = $this->sapiClient->createTableAsync(
+            $bucketId,
+            'simple',
+            new CsvFile(__DIR__ . '/data/sample.csv'),
+        );
+
+        $component = new Components($this->branchAwareClient);
+
+        $configuration = new Configuration();
+        $configuration->setComponentId('keboola.orchestrator');
+        $configuration->setName('test-triggers');
+        $orchestration = $component->addConfiguration($configuration);
+
+        $token = new Tokens($this->sapiClient);
+        $tokenOptions = new TokenCreateOptions();
+        $tokenOptions->setDescription(sprintf('[_internal] Token for triggering %s', $orchestration['id']));
+        $tokenOptions->setCanManageBuckets(true);
+        $tokenOptions->setCanReadAllFileUploads(true);
+        $tokenData = $token->createToken($tokenOptions);
+
+        $this->sapiClient->createTrigger([
+            'component' => 'keboola.orchestrator',
+            'configurationId' => $orchestration['id'],
+            'runWithTokenId' => $tokenData['id'],
+            'tableIds' => [
+                $tableId,
+            ],
+            'coolDownPeriodMinutes' => 5,
+        ]);
+
+        $backup = new AbsBackup(
+            $this->sapiClient,
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+        );
+        $backup->backupTriggers();
+
+        $targetContent = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'triggers.json',
+        );
+        /** @var array{
+         *     id: string,
+         *     lastRun: string,
+         *     creatorToken: string,
+         *     runWithTokenId: int,
+         *     component: string,
+         *     configurationId: string,
+         *     coolDownPeriodMinutes: int,
+         *     tables: array{
+         *          tableId: string,
+         *     }[],
+         * } $data
+         */
+        $data = (array) json_decode((string) stream_get_contents($targetContent->getContentStream()), true);
+        array_walk($data, function (&$item): void {
+            unset($item['id'], $item['lastRun'], $item['creatorToken']);
+        });
+
+        $expectedConfig = [
+            [
+                'runWithTokenId' => $tokenData['id'],
+                'component' => 'keboola.orchestrator',
+                'configurationId' => $orchestration['id'],
+                'coolDownPeriodMinutes' => 5,
+                'tables' => [
+                    [
+                        'tableId' => $tableId,
+                    ],
+                ],
+            ],
+        ];
+
+        self::assertEquals($expectedConfig, $data);
     }
 
     private function cleanupAbs(): void
