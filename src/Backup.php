@@ -294,6 +294,40 @@ abstract class Backup
         $this->putToStorage('triggers.json', (string) json_encode($triggers));
     }
 
+    public function backupNotification(): void
+    {
+        $this->logger->info('Exporting notifications');
+
+        $notificationClient = new NotificationClient(
+            $this->sapiClient->getServiceUrl('notification'),
+            $this->sapiClient->getTokenString(),
+            [
+                'backoffMaxTries' => 3,
+                'userAgent' => 'Keboola Project Backup',
+            ],
+        );
+        $devBranches = new DevBranches($this->sapiClient);
+        $listBranches = $devBranches->listBranches();
+        $defaultBranch = current(array_filter($listBranches, fn($v) => $v['isDefault'] === true));
+
+        $notifications = [];
+        foreach ($notificationClient->listSubscriptions() as $subscription) {
+            $skipSubscription = false;
+            foreach ($subscription['filters'] as $item) {
+                if ($item['field'] === 'branch.id' && $item['value'] !== strval($defaultBranch['id'])) {
+                    $skipSubscription = true;
+                    break;
+                }
+            }
+            if ($skipSubscription) {
+                continue;
+            }
+            $notifications[] = $subscription;
+        }
+
+        $this->putToStorage('notifications.json', (string) json_encode($notifications));
+    }
+
     protected function getFileClient(array $fileInfo): IFileClient
     {
         if (isset($fileInfo['credentials'])) {

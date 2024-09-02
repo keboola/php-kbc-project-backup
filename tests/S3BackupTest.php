@@ -6,6 +6,11 @@ namespace Keboola\ProjectBackup\Tests;
 
 use Aws\S3\S3Client;
 use Keboola\Csv\CsvFile;
+use Keboola\NotificationClient\Requests\PostSubscription\EmailRecipient;
+use Keboola\NotificationClient\Requests\PostSubscription\Filter;
+use Keboola\NotificationClient\Requests\Subscription;
+use Keboola\ProjectBackup\AbsBackup;
+use Keboola\ProjectBackup\NotificationClient;
 use Keboola\ProjectBackup\S3Backup;
 use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
@@ -806,6 +811,88 @@ class S3BackupTest extends TestCase
         ];
 
         self::assertEquals($expectedConfig, $data);
+    }
+
+    public function testBackupNotifications(): void
+    {
+        $notificationClient = new NotificationClient(
+            $this->sapiClient->getServiceUrl('notification'),
+            $this->sapiClient->getTokenString(),
+            [
+                'backoffMaxTries' => 3,
+                'userAgent' => 'Keboola Project Backup',
+            ],
+        );
+
+        $subcriptionRequest = new Subscription(
+            'job-succeeded',
+            new EmailRecipient('oj@oj.cz'),
+            [
+                new Filter('job.component.id', 'keboola.orchestrator'),
+            ],
+        );
+        $notificationClient->createSubscription($subcriptionRequest);
+
+        $devBranches = new DevBranches($this->sapiClient);
+        $devBranch = $devBranches->createBranch('dev');
+        $subcriptionRequest = new Subscription(
+            'job-failed',
+            new EmailRecipient('oj@oj.cz'),
+            [
+                new Filter('job.component.id', 'keboola.orchestrator'),
+                new Filter('branch.id', (string) $devBranch['id']),
+            ],
+        );
+        $notificationClient->createSubscription($subcriptionRequest);
+
+        $backup = new S3Backup(
+            $this->sapiClient,
+            $this->s3Client,
+            (string) getenv('TEST_AWS_S3_BUCKET'),
+            'backup',
+        );
+        $backup->backupNotification();
+
+        $temp = new Temp();
+
+        $targetFile = $temp->createTmpFile('notifications.json');
+        $this->s3Client->getObject([
+            'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+            'Key' => 'backup/notifications.json',
+            'SaveAs' => (string) $targetFile,
+        ]);
+
+        $data = (string) json_encode(
+            (array) json_decode((string) file_get_contents((string) $targetFile), true),
+            JSON_PRETTY_PRINT,
+        );
+
+        $expectedData = <<<JSON
+[
+    {
+        "id": "%s",
+        "event": "job-succeeded",
+        "filters": [
+            {
+                "field": "branch.id",
+                "value": "%s",
+                "operator": "=="
+            },
+            {
+                "field": "job.component.id",
+                "value": "keboola.orchestrator",
+                "operator": "=="
+            }
+        ],
+        "recipient": {
+            "channel": "email",
+            "address": "oj@oj.cz"
+        }
+    }
+]
+JSON;
+
+        self::assertStringMatchesFormat($expectedData, $data);
     }
 
     private function cleanupS3(): void

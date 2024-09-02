@@ -14,7 +14,8 @@
         "keboola/storage-api-client": "^15.2",
         "monolog/monolog": "^2.3",
         "microsoft/azure-storage-blob": "^1.5",
-        "keboola/php-file-storage-utils": "^0.2.6"
+        "keboola/php-file-storage-utils": "^0.2.6",
+        "keboola/notification-api-php-client": "^3.0"
     },
     "require-dev": {
         "phpstan/phpstan": "^1.11",

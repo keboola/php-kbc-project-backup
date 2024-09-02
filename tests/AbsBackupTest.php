@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup\Tests;
 
 use Keboola\Csv\CsvFile;
+use Keboola\NotificationClient\Requests\PostSubscription\EmailRecipient;
+use Keboola\NotificationClient\Requests\PostSubscription\Filter;
+use Keboola\NotificationClient\Requests\Subscription;
 use Keboola\ProjectBackup\AbsBackup;
+use Keboola\ProjectBackup\NotificationClient;
 use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
 use Keboola\StorageApi\Components;
@@ -778,6 +782,83 @@ class AbsBackupTest extends TestCase
         ];
 
         self::assertEquals($expectedConfig, $data);
+    }
+
+    public function testBackupNotifications(): void
+    {
+        $notificationClient = new NotificationClient(
+            $this->sapiClient->getServiceUrl('notification'),
+            $this->sapiClient->getTokenString(),
+            [
+                'backoffMaxTries' => 3,
+                'userAgent' => 'Keboola Project Backup',
+            ],
+        );
+
+        $subcriptionRequest = new Subscription(
+            'job-succeeded',
+            new EmailRecipient('oj@oj.cz'),
+            [
+                new Filter('job.component.id', 'keboola.orchestrator'),
+            ],
+        );
+        $notificationClient->createSubscription($subcriptionRequest);
+
+        $devBranches = new DevBranches($this->sapiClient);
+        $devBranch = $devBranches->createBranch('dev');
+        $subcriptionRequest = new Subscription(
+            'job-failed',
+            new EmailRecipient('oj@oj.cz'),
+            [
+                new Filter('job.component.id', 'keboola.orchestrator'),
+                new Filter('branch.id', (string) $devBranch['id']),
+            ],
+        );
+        $notificationClient->createSubscription($subcriptionRequest);
+
+        $backup = new AbsBackup(
+            $this->sapiClient,
+            $this->absClient,
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+        );
+        $backup->backupNotification();
+
+        $targetContent = $this->absClient->getBlob(
+            (string) getenv('TEST_AZURE_CONTAINER_NAME'),
+            'notifications.json',
+        );
+
+        $data = (string) json_encode(
+            json_decode((string) stream_get_contents($targetContent->getContentStream()), true),
+            JSON_PRETTY_PRINT,
+        );
+
+        $expectedData = <<<JSON
+[
+    {
+        "id": "%s",
+        "event": "job-succeeded",
+        "filters": [
+            {
+                "field": "branch.id",
+                "value": "%s",
+                "operator": "=="
+            },
+            {
+                "field": "job.component.id",
+                "value": "keboola.orchestrator",
+                "operator": "=="
+            }
+        ],
+        "recipient": {
+            "channel": "email",
+            "address": "oj@oj.cz"
+        }
+    }
+]
+JSON;
+
+        self::assertStringMatchesFormat($expectedData, $data);
     }
 
     private function cleanupAbs(): void
