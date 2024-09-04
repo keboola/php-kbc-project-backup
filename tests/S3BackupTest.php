@@ -851,7 +851,7 @@ class S3BackupTest extends TestCase
             (string) getenv('TEST_AWS_S3_BUCKET'),
             'backup',
         );
-        $backup->backupNotification();
+        $backup->backupNotifications();
 
         $temp = new Temp();
 

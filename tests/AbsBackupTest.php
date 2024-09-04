@@ -821,7 +821,7 @@ class AbsBackupTest extends TestCase
             $this->absClient,
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
         );
-        $backup->backupNotification();
+        $backup->backupNotifications();
 
         $targetContent = $this->absClient->getBlob(
             (string) getenv('TEST_AZURE_CONTAINER_NAME'),
