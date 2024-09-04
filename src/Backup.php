@@ -312,15 +312,10 @@ abstract class Backup
 
         $notifications = [];
         foreach ($notificationClient->listSubscriptions() as $subscription) {
-            $skipSubscription = false;
             foreach ($subscription['filters'] as $item) {
                 if ($item['field'] === 'branch.id' && $item['value'] !== strval($defaultBranch['id'])) {
-                    $skipSubscription = true;
-                    break;
+                    continue 2;
                 }
-            }
-            if ($skipSubscription) {
-                continue;
             }
             $notifications[] = $subscription;
         }
