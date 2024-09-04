@@ -294,7 +294,7 @@ abstract class Backup
         $this->putToStorage('triggers.json', (string) json_encode($triggers));
     }
 
-    public function backupNotification(): void
+    public function backupNotifications(): void
     {
         $this->logger->info('Exporting notifications');
 
