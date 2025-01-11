@@ -8,6 +8,7 @@ use Exception;
 use GuzzleHttp\Client as GuzzleClient;
 use Keboola\ProjectBackup\Exception\SkipTableException;
 use Keboola\ProjectBackup\FileClient\AbsFileClient;
+use Keboola\ProjectBackup\FileClient\GcsFileClient;
 use Keboola\ProjectBackup\FileClient\IFileClient;
 use Keboola\ProjectBackup\FileClient\S3FileClient;
 use Keboola\StorageApi\BranchAwareClient;
@@ -329,6 +330,8 @@ abstract class Backup
             return new S3FileClient($fileInfo);
         } elseif (isset($fileInfo['absCredentials'])) {
             return new AbsFileClient($fileInfo);
+        } elseif (isset($fileInfo['gcsCredentials'])) {
+            return new GcsFileClient($fileInfo);
         } else {
             throw new Exception('Unknown file storage client.');
         }

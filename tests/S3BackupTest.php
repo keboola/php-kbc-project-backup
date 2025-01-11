@@ -909,13 +909,11 @@ JSON;
             $deleteObjects[] = $key;
         }
 
-        if (count($deleteObjects) > 0) {
-            $this->s3Client->deleteObjects(
-                [
-                    'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
-                    'Delete' => ['Objects' => $deleteObjects],
-                ],
-            );
+        foreach ($deleteObjects as $deleteObject) {
+            $this->s3Client->deleteObject([
+                'Bucket' => getenv('TEST_AWS_S3_BUCKET'),
+                'Key' => $deleteObject['Key'],
+            ]);
         }
     }
 }
