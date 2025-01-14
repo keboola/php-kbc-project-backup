@@ -25,6 +25,11 @@ env:
   # https://connection.north-europe.azure.keboola.com/admin/projects/5837/dashboard
   TEST_AZURE_STORAGE_API_URL: "https://connection.north-europe.azure.keboola.com/"
   TEST_AZURE_STORAGE_API_TOKEN: "${{ secrets.TEST_AZURE_STORAGE_API_TOKEN }}"
+
+  # GCP Credentials
+  TEST_GCP_STORAGE_API_URL: "https://connection.europe-west3.gcp.keboola.com/"
+  TEST_GCP_STORAGE_API_TOKEN: "${{ secrets.TEST_GCP_STORAGE_API_TOKEN }}"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -59,5 +64,7 @@ jobs:
           -e TEST_AZURE_ACCOUNT_NAME
           -e TEST_AZURE_ACCOUNT_KEY
           -e TEST_AZURE_CONTAINER_NAME
+          -e TEST_GCP_STORAGE_API_URL
+          -e TEST_GCP_STORAGE_API_TOKEN
           ${{env.APP_IMAGE}}
           composer ci
