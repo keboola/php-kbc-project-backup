@@ -841,6 +841,56 @@ JSON;
         self::assertStringMatchesFormat($expectedData, $data);
     }
 
+    public function testBackupSignedUrls(): void
+    {
+        $component = new Components($this->branchAwareClient);
+
+        $config = new Configuration();
+        $config->setComponentId('keboola.snowflake-transformation');
+        $config->setDescription('Test Configuration');
+        $config->setConfigurationId('sapi-php-test');
+        $config->setName('test-configuration');
+        $configData = $component->addConfiguration($config);
+        $config->setConfigurationId($configData['id']);
+
+        $row = new ConfigurationRow($config);
+        $row->setChangeDescription('Row 1');
+        $row->setConfiguration(
+            ['name' => 'test 1', 'backend' => 'docker', 'type' => 'r', 'queries' => ['foo']],
+        );
+        $component->addConfigurationRow($row);
+
+        $backup = new GcsBackup(
+            $this->sapiClient,
+            $this->storageClient,
+            (string) getenv('TEST_GCP_BUCKET'),
+            'backup/',
+            true,
+        );
+        $backup->backupConfigs(false);
+        $backup->backupSignedUrls();
+
+        $targetContents = $this->storageClient
+            ->bucket((string) getenv('TEST_GCP_BUCKET'))
+            ->object('backup/signedUrls.json')
+            ->downloadAsString();
+
+        /** @var array $targetData */
+        $targetData = json_decode($targetContents, true);
+
+        self::assertArrayHasKey('configurations.json', $targetData);
+        self::assertArrayHasKey('configurations', $targetData);
+        self::assertArrayHasKey('keboola.snowflake-transformation', $targetData['configurations']);
+        self::assertArrayHasKey(
+            'sapi-php-test.json',
+            $targetData['configurations']['keboola.snowflake-transformation'],
+        );
+        self::assertStringContainsString(
+            'https://storage.googleapis.com/' . (string) getenv('TEST_GCP_BUCKET') . '/backup/',
+            $targetData['configurations']['keboola.snowflake-transformation']['sapi-php-test.json'],
+        );
+    }
+
     private function cleanupGCS(): void
     {
         $objects = $this->storageClient->bucket((string) getenv('TEST_GCP_BUCKET'))->objects();
