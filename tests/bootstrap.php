@@ -23,6 +23,10 @@ $environments = [
     'TEST_AWS_S3_BUCKET',
     'TEST_AZURE_ACCOUNT_NAME',
     'TEST_AZURE_ACCOUNT_KEY',
+    'TEST_GCP_STORAGE_API_URL',
+    'TEST_GCP_STORAGE_API_TOKEN',
+    'TEST_GCP_BUCKET',
+    'TEST_GCP_SERVICE_ACCOUNT',
 ];
 
 foreach ($environments as $environment) {
