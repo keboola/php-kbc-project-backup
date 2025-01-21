@@ -885,10 +885,11 @@ JSON;
             'sapi-php-test.json',
             $targetData['configurations']['keboola.snowflake-transformation'],
         );
-        self::assertStringContainsString(
-            'https://storage.googleapis.com/' . (string) getenv('TEST_GCP_BUCKET') . '/backup/',
+
+        self::assertTrue(str_contains(
             $targetData['configurations']['keboola.snowflake-transformation']['sapi-php-test.json'],
-        );
+            'https://storage.googleapis.com/' . (string) getenv('TEST_GCP_BUCKET') . '/backup/',
+        ));
     }
 
     private function cleanupGCS(): void
