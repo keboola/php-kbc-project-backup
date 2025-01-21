@@ -29,7 +29,8 @@ env:
   # GCP Credentials
   TEST_GCP_STORAGE_API_URL: "https://connection.europe-west3.gcp.keboola.com/"
   TEST_GCP_STORAGE_API_TOKEN: "${{ secrets.TEST_GCP_STORAGE_API_TOKEN }}"
-
+  TEST_GCP_BUCKET: "ci-php-kbc-project-backup"
+  TEST_GCP_SERVICE_ACCOUNT: "${{ secrets.TEST_GCP_SERVICE_ACCOUNT }}"
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -66,5 +67,7 @@ jobs:
           -e TEST_AZURE_CONTAINER_NAME
           -e TEST_GCP_STORAGE_API_URL
           -e TEST_GCP_STORAGE_API_TOKEN
+          -e TEST_GCP_BUCKET
+          -e TEST_GCP_SERVICE_ACCOUNT
           ${{env.APP_IMAGE}}
           composer ci

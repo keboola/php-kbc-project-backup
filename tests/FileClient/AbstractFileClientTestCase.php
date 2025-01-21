@@ -56,7 +56,11 @@ abstract class AbstractFileClientTestCase extends TestCase
         $tableId = sprintf('%s.%s', $bucketId, $table);
 
         if (!$this->storageClient->bucketExists($bucketId)) {
-            $this->storageClient->createBucket($bucket, $stage);
+            $bucketName = $bucket;
+            if (str_starts_with($bucket, 'c-')) {
+                $bucketName = substr($bucket, 2);
+            }
+            $this->storageClient->createBucket($bucketName, $stage);
         }
         if ($this->storageClient->tableExists($tableId)) {
             $this->storageClient->dropTable($tableId);
