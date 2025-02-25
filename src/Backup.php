@@ -13,6 +13,7 @@ use Keboola\ProjectBackup\FileClient\IFileClient;
 use Keboola\ProjectBackup\FileClient\S3FileClient;
 use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
+use Keboola\StorageApi\ClientException;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\DevBranches;
 use Keboola\StorageApi\DevBranchesMetadata;
@@ -158,9 +159,13 @@ abstract class Backup
         );
 
         $this->logger->info('Exporting tables');
-        $tables = $this->sapiClient->listTables(null, [
-            'include' => 'columns,buckets,metadata,columnMetadata',
-        ]);
+        try {
+            $tables = $this->sapiClient->listTables(null, [
+                'include' => 'columns,buckets,metadata,columnMetadata',
+            ]);
+        } catch (ClientException $e) {
+            $tables = $this->getTablesByBucket($buckets);
+        }
         $tables = array_filter($tables, fn($table) => empty($table['bucket']['sourceBucket']));
 
         $this->putToStorage('tables.json', (string) json_encode($tables));
@@ -335,5 +340,33 @@ abstract class Backup
         } else {
             throw new Exception('Unknown file storage client.');
         }
+    }
+
+    private function getTablesByBucket(array $buckets): array
+    {
+        $tables = [];
+        foreach ($buckets as $bucket) {
+            try {
+                $sapiTables = $this->sapiClient->listTables($bucket['id'], [
+                    'include' => 'columns,buckets,metadata,columnMetadata',
+                ]);
+            } catch (ClientException $e) {
+                $sapiTables = $this->getTablesByBucketId($bucket['id']);
+            }
+            $tables = array_merge($tables, $sapiTables);
+        }
+        return $tables;
+    }
+
+    private function getTablesByBucketId(string $bucketId): array
+    {
+        $sapiTables = $this->sapiClient->listTables($bucketId, [
+            'include' => '',
+        ]);
+        $tables = [];
+        foreach ($sapiTables as $sapiTable) {
+            $tables[] = $this->sapiClient->getTable($sapiTable['id']);
+        }
+        return $tables;
     }
 }
