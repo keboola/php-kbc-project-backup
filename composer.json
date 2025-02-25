@@ -15,7 +15,8 @@
         "monolog/monolog": "^2.3",
         "microsoft/azure-storage-blob": "^1.5",
         "keboola/php-file-storage-utils": "^0.2.6",
-        "keboola/notification-api-php-client": "^3.0"
+        "keboola/notification-api-php-client": "^3.0",
+        "keboola/retry": "^0.5.1"
     },
     "require-dev": {
         "phpstan/phpstan": "^1.11",
@@ -39,6 +40,7 @@
         "phpunit": "phpunit",
         "phplint": "parallel-lint -j 10 --exclude vendor .",
         "phpcs": "phpcs -n --ignore=vendor --extensions=php .",
+        "phpcbf": "phpcbf -n --ignore=vendor --extensions=php .",
         "phpstan": "phpstan analyse ./src ./tests --level=max --no-progress -c phpstan.neon",
         "tests": [
             "@phpunit"
