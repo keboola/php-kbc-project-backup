@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Keboola\ProjectBackup\Tests;
 
 use Aws\S3\S3Client;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
 use Keboola\Csv\CsvFile;
 use Keboola\NotificationClient\Requests\PostSubscription\EmailRecipient;
 use Keboola\NotificationClient\Requests\PostSubscription\Filter;
@@ -27,6 +31,7 @@ use Keboola\StorageApi\Tokens;
 use Keboola\Temp\Temp;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 use stdClass;
 
 class S3BackupTest extends TestCase
@@ -893,6 +898,107 @@ class S3BackupTest extends TestCase
 JSON;
 
         self::assertStringMatchesFormat($expectedData, $data);
+    }
+
+    /**
+     * Test that upload retries on temporary failures and succeeds
+     */
+    public function testUploadRetriesOnTemporaryFailure(): void
+    {
+        $mockS3Client = $this->createMock(S3Client::class);
+
+        // Configure the mock to fail twice with 503 then succeed
+        $mockS3Client->expects($this->exactly(3))
+            ->method('upload')
+            ->willReturnOnConsecutiveCalls(
+                $this->throwException(new ServerException(
+                    'Service Unavailable',
+                    new Request('PUT', 'test-url'),
+                    new Response(503),
+                )),
+                $this->throwException(new ServerException(
+                    'Service Unavailable',
+                    new Request('PUT', 'test-url'),
+                    new Response(503),
+                )),
+                ['ETag' => 'test-etag'], // successful response
+            );
+
+        $backup = new S3Backup(
+            $this->sapiClient,
+            $mockS3Client,
+            'test-bucket',
+            'test-path',
+        );
+
+        // Use reflection to access protected method
+        $method = new ReflectionMethod(S3Backup::class, 'putToStorage');
+        $method->setAccessible(true);
+
+        // Should not throw exception as it should eventually succeed
+        $method->invoke($backup, 'test.json', 'test-content');
+    }
+
+    /**
+     * Test that upload fails after maximum retries
+     */
+    public function testUploadFailsAfterMaxRetries(): void
+    {
+        $mockS3Client = $this->createMock(S3Client::class);
+
+        // Configure the mock to fail with 503 more times than max retries
+        $mockS3Client->expects($this->exactly(S3Backup::RETRY_MAX_TRIES))
+            ->method('upload')
+            ->willThrowException(new ServerException(
+                'Service Unavailable',
+                new Request('PUT', 'test-url'),
+                new Response(503),
+            ));
+
+        $backup = new S3Backup(
+            $this->sapiClient,
+            $mockS3Client,
+            'test-bucket',
+            'test-path',
+        );
+
+        // Use reflection to access protected method
+        $method = new ReflectionMethod(S3Backup::class, 'putToStorage');
+        $method->setAccessible(true);
+
+        $this->expectException(ServerException::class);
+        $method->invoke($backup, 'test.json', 'test-content');
+    }
+
+    /**
+     * Test that non-retryable errors fail immediately
+     */
+    public function testNonRetryableErrorFailsImmediately(): void
+    {
+        $mockS3Client = $this->createMock(S3Client::class);
+
+        // Configure the mock to fail with 400 (non-retryable)
+        $mockS3Client->expects($this->exactly(1))
+            ->method('upload')
+            ->willThrowException(new ClientException(
+                'Bad Request',
+                new Request('PUT', 'test-url'),
+                new Response(400),
+            ));
+
+        $backup = new S3Backup(
+            $this->sapiClient,
+            $mockS3Client,
+            'test-bucket',
+            'test-path',
+        );
+
+        // Use reflection to access protected method
+        $method = new ReflectionMethod(S3Backup::class, 'putToStorage');
+        $method->setAccessible(true);
+
+        $this->expectException(ClientException::class);
+        $method->invoke($backup, 'test.json', 'test-content');
     }
 
     private function cleanupS3(): void
