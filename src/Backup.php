@@ -13,7 +13,6 @@ use Keboola\ProjectBackup\FileClient\IFileClient;
 use Keboola\ProjectBackup\FileClient\S3FileClient;
 use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
-use Keboola\StorageApi\ClientException;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\DevBranches;
 use Keboola\StorageApi\DevBranchesMetadata;
@@ -24,6 +23,7 @@ use Keboola\Temp\Temp;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use stdClass;
+use Throwable;
 
 abstract class Backup
 {
@@ -160,10 +160,14 @@ abstract class Backup
 
         $this->logger->info('Exporting tables');
         try {
+            /** @var ?array $tables */
             $tables = $this->sapiClient->listTables(null, [
                 'include' => 'columns,buckets,metadata,columnMetadata',
             ]);
-        } catch (ClientException $e) {
+            if ($tables === null) {
+                $tables = $this->getTablesByBucket($buckets);
+            }
+        } catch (Throwable $e) {
             $tables = $this->getTablesByBucket($buckets);
         }
         $tables = array_filter($tables, fn($table) => empty($table['bucket']['sourceBucket']));
@@ -347,10 +351,14 @@ abstract class Backup
         $tables = [];
         foreach ($buckets as $bucket) {
             try {
+                /** @var ?array $sapiTables */
                 $sapiTables = $this->sapiClient->listTables($bucket['id'], [
                     'include' => 'columns,buckets,metadata,columnMetadata',
                 ]);
-            } catch (ClientException $e) {
+                if ($sapiTables === null) {
+                    $sapiTables = $this->getTablesByBucketId($bucket['id']);
+                }
+            } catch (Throwable $e) {
                 $sapiTables = $this->getTablesByBucketId($bucket['id']);
             }
             $tables = array_merge($tables, $sapiTables);
