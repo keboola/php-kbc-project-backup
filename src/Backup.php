@@ -160,6 +160,7 @@ abstract class Backup
 
         $this->logger->info('Exporting tables');
         try {
+            /** @var ?array $tables */
             $tables = $this->sapiClient->listTables(null, [
                 'include' => 'columns,buckets,metadata,columnMetadata',
             ]);
@@ -350,6 +351,7 @@ abstract class Backup
         $tables = [];
         foreach ($buckets as $bucket) {
             try {
+                /** @var ?array $sapiTables */
                 $sapiTables = $this->sapiClient->listTables($bucket['id'], [
                     'include' => 'columns,buckets,metadata,columnMetadata',
                 ]);
