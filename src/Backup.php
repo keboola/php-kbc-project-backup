@@ -163,6 +163,9 @@ abstract class Backup
             $tables = $this->sapiClient->listTables(null, [
                 'include' => 'columns,buckets,metadata,columnMetadata',
             ]);
+            if ($tables === null) {
+                $tables = $this->getTablesByBucket($buckets);
+            }
         } catch (ClientException $e) {
             $tables = $this->getTablesByBucket($buckets);
         }
@@ -350,6 +353,9 @@ abstract class Backup
                 $sapiTables = $this->sapiClient->listTables($bucket['id'], [
                     'include' => 'columns,buckets,metadata,columnMetadata',
                 ]);
+                if ($sapiTables === null) {
+                    $sapiTables = $this->getTablesByBucketId($bucket['id']);
+                }
             } catch (ClientException $e) {
                 $sapiTables = $this->getTablesByBucketId($bucket['id']);
             }
