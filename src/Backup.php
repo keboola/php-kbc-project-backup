@@ -13,7 +13,6 @@ use Keboola\ProjectBackup\FileClient\IFileClient;
 use Keboola\ProjectBackup\FileClient\S3FileClient;
 use Keboola\StorageApi\BranchAwareClient;
 use Keboola\StorageApi\Client;
-use Keboola\StorageApi\ClientException;
 use Keboola\StorageApi\Components;
 use Keboola\StorageApi\DevBranches;
 use Keboola\StorageApi\DevBranchesMetadata;
@@ -24,6 +23,7 @@ use Keboola\Temp\Temp;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use stdClass;
+use Throwable;
 
 abstract class Backup
 {
@@ -167,7 +167,7 @@ abstract class Backup
             if ($tables === null) {
                 $tables = $this->getTablesByBucket($buckets);
             }
-        } catch (ClientException $e) {
+        } catch (Throwable $e) {
             $tables = $this->getTablesByBucket($buckets);
         }
         $tables = array_filter($tables, fn($table) => empty($table['bucket']['sourceBucket']));
@@ -358,7 +358,7 @@ abstract class Backup
                 if ($sapiTables === null) {
                     $sapiTables = $this->getTablesByBucketId($bucket['id']);
                 }
-            } catch (ClientException $e) {
+            } catch (Throwable $e) {
                 $sapiTables = $this->getTablesByBucketId($bucket['id']);
             }
             $tables = array_merge($tables, $sapiTables);
