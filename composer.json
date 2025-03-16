@@ -37,23 +37,17 @@
         }
     },
     "scripts": {
-        "phpunit": "phpunit",
         "phplint": "parallel-lint -j 10 --exclude vendor .",
         "phpcs": "phpcs -n --ignore=vendor --extensions=php .",
-        "phpcbf": "phpcbf -n --ignore=vendor --extensions=php .",
         "phpstan": "phpstan analyse ./src ./tests --level=max --no-progress -c phpstan.neon",
-        "tests": [
-            "@phpunit"
-        ],
-        "build": [
+        "test-aws": "phpunit tests/S3BackupTest.php",
+        "test-azure": "phpunit tests/AbsBackupTest.php",
+        "test-gcp": "phpunit tests/GcsBackupTest.php",
+        "static-analysis": [
+            "@composer validate --no-check-publish --no-check-all",
             "@phplint",
             "@phpcs",
-            "@phpstan",
-            "@tests"
-        ],
-        "ci": [
-            "@composer validate --no-check-publish --no-check-all",
-            "@build"
+            "@phpstan"
         ]
     },
     "config": {
