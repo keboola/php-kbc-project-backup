@@ -8,28 +8,6 @@ env:
   DOCKERHUB_USER: "keboolabot"
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  # AWS Credentials
-  TEST_AWS_ACCESS_KEY_ID: "AKIATDSWT524X5RNRXWF"
-  TEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.TEST_AWS_SECRET_ACCESS_KEY }}
-  TEST_AWS_REGION: "us-east-1"
-  TEST_AWS_S3_BUCKET: "php-kbc-project-backup-s3filesbucket-1d2rc211smfc"
-  # https://connection.keboola.com/admin/projects/9016/dashboard
-  TEST_AWS_STORAGE_API_URL: "https://connection.keboola.com/"
-  TEST_AWS_STORAGE_API_TOKEN: "${{ secrets.TEST_AWS_STORAGE_API_TOKEN }}"
-
-  # Azure Credentials
-  TEST_AZURE_ACCOUNT_NAME: "projectmigration"
-  TEST_AZURE_ACCOUNT_KEY: ${{ secrets.TEST_AZURE_ACCOUNT_KEY }}
-  TEST_AZURE_CONTAINER_NAME: "project-migration-test-container"
-  # https://connection.north-europe.azure.keboola.com/admin/projects/5837/dashboard
-  TEST_AZURE_STORAGE_API_URL: "https://connection.north-europe.azure.keboola.com/"
-  TEST_AZURE_STORAGE_API_TOKEN: "${{ secrets.TEST_AZURE_STORAGE_API_TOKEN }}"
-
-  # GCP Credentials
-  TEST_GCP_STORAGE_API_URL: "https://connection.europe-west3.gcp.keboola.com/"
-  TEST_GCP_STORAGE_API_TOKEN: "${{ secrets.TEST_GCP_STORAGE_API_TOKEN }}"
-  TEST_GCP_BUCKET: "ci-php-kbc-project-backup"
-  TEST_GCP_SERVICE_ACCOUNT: "${{ secrets.TEST_GCP_SERVICE_ACCOUNT }}"
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -104,6 +82,7 @@ jobs:
       TEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.TEST_AWS_SECRET_ACCESS_KEY }}
       TEST_AWS_REGION: "us-east-1"
       TEST_AWS_S3_BUCKET: "php-kbc-project-backup-s3filesbucket-1d2rc211smfc"
+      # https://connection.keboola.com/ad\min/projects/9016/dashboard
       TEST_AWS_STORAGE_API_URL: "https://connection.keboola.com/"
       TEST_AWS_STORAGE_API_TOKEN: "${{ secrets.TEST_AWS_STORAGE_API_TOKEN }}"
 
@@ -111,6 +90,7 @@ jobs:
       TEST_AZURE_ACCOUNT_NAME: "projectmigration"
       TEST_AZURE_ACCOUNT_KEY: ${{ secrets.TEST_AZURE_ACCOUNT_KEY }}
       TEST_AZURE_CONTAINER_NAME: "project-migration-test-container"
+      # https://connection.north-europe.azure.keboola.com/admin/projects/5837/dashboard
       TEST_AZURE_STORAGE_API_URL: "https://connection.north-europe.azure.keboola.com/"
       TEST_AZURE_STORAGE_API_TOKEN: "${{ secrets.TEST_AZURE_STORAGE_API_TOKEN }}"
 
