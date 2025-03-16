@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" backupGlobals="false" colors="true" processIsolation="false" stopOnFailure="false" bootstrap="./tests/bootstrap.php" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.3/phpunit.xsd" cacheDirectory=".phpunit.cache" backupStaticProperties="false">
-  <testsuite name="Main Test Suite">
-    <directory>./tests</directory>
-  </testsuite>
+  <testsuites>
+    <testsuite name="aws">
+      <file>./tests/S3BackupTest.php</file>
+    </testsuite>
+    <testsuite name="azure">
+      <file>./tests/AbsBackupTest.php</file>
+    </testsuite>
+    <testsuite name="gcp">
+      <file>./tests/GcsBackupTest.php</file>
+      <file>./tests/FileClient/GcsFileClientTest.php</file>
+    </testsuite>
+  </testsuites>
 </phpunit>
