@@ -44,6 +44,9 @@ jobs:
         name: Check out the repo
         uses: actions/checkout@v4
       -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
         name: Print Docker version
         run: docker -v
       -
@@ -51,8 +54,18 @@ jobs:
         if: env.DOCKERHUB_TOKEN
         run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
       -
-        name: Build image
-        run: docker build -t $APP_IMAGE .
+        name: Build and export
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: ${{ env.APP_IMAGE }}
+          outputs: type=docker,dest=/tmp/image.tar
+      -
+        name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: /tmp/image.tar
 
   static-analysis:
     needs: build
@@ -61,6 +74,15 @@ jobs:
       group: static-analysis-${{ github.ref }}
       cancel-in-progress: true
     steps:
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image
+          path: /tmp
+      -
+        name: Load image
+        run: docker load --input /tmp/image.tar
       -
         name: Run static analysis
         run: docker run ${{env.APP_IMAGE}} composer static-analysis
@@ -98,6 +120,15 @@ jobs:
       TEST_GCP_BUCKET: "ci-php-kbc-project-backup"
       TEST_GCP_SERVICE_ACCOUNT: "${{ secrets.TEST_GCP_SERVICE_ACCOUNT }}"
     steps:
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image
+          path: /tmp
+      -
+        name: Load image
+        run: docker load --input /tmp/image.tar
       -
         name: Run ${{ matrix.platform }} tests
         run: |
