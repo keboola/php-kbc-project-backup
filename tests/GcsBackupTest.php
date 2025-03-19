@@ -482,9 +482,9 @@ class GcsBackupTest extends TestCase
     {
         $bucketId = $this->sapiClient->createBucket('main', Client::STAGE_IN);
 
-        $this->sapiClient->shareBucket($bucketId, ['sharing' => 'organization']);
+        $this->sapiClient->shareOrganizationBucket($bucketId);
 
-        $this->sapiClient->createTable('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
+        $this->sapiClient->createTableAsync('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
         $token = $this->sapiClient->verifyToken();
         $projectId = $token['owner']['id'];

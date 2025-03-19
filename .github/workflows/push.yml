@@ -1,6 +1,5 @@
 name: GitHub Actions
 on: [ push ]
-concurrency: ci-${{ github.ref }} # to avoid tag collisions in the ECR
 env:
   # Name of the image in the ECR
   APP_IMAGE: php-kbc-project-backup
@@ -9,38 +8,22 @@ env:
   DOCKERHUB_USER: "keboolabot"
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  # AWS Credentials
-  TEST_AWS_ACCESS_KEY_ID: "AKIATDSWT524X5RNRXWF"
-  TEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.TEST_AWS_SECRET_ACCESS_KEY }}
-  TEST_AWS_REGION: "us-east-1"
-  TEST_AWS_S3_BUCKET: "php-kbc-project-backup-s3filesbucket-1d2rc211smfc"
-  # https://connection.keboola.com/admin/projects/9016/dashboard
-  TEST_AWS_STORAGE_API_URL: "https://connection.keboola.com/"
-  TEST_AWS_STORAGE_API_TOKEN: "${{ secrets.TEST_AWS_STORAGE_API_TOKEN }}"
-
-  # Azure Credentials
-  TEST_AZURE_ACCOUNT_NAME: "projectmigration"
-  TEST_AZURE_ACCOUNT_KEY: ${{ secrets.TEST_AZURE_ACCOUNT_KEY }}
-  TEST_AZURE_CONTAINER_NAME: "project-migration-test-container"
-  # https://connection.north-europe.azure.keboola.com/admin/projects/5837/dashboard
-  TEST_AZURE_STORAGE_API_URL: "https://connection.north-europe.azure.keboola.com/"
-  TEST_AZURE_STORAGE_API_TOKEN: "${{ secrets.TEST_AZURE_STORAGE_API_TOKEN }}"
-
-  # GCP Credentials
-  TEST_GCP_STORAGE_API_URL: "https://connection.europe-west3.gcp.keboola.com/"
-  TEST_GCP_STORAGE_API_TOKEN: "${{ secrets.TEST_GCP_STORAGE_API_TOKEN }}"
-  TEST_GCP_BUCKET: "ci-php-kbc-project-backup"
-  TEST_GCP_SERVICE_ACCOUNT: "${{ secrets.TEST_GCP_SERVICE_ACCOUNT }}"
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
       app_image_tag: ${{ steps.tag.outputs.app_image_tag }}
       is_semantic_tag: ${{ steps.tag.outputs.is_semantic_tag }}
+    concurrency: 
+      group: build-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       -
         name: Check out the repo
         uses: actions/checkout@v4
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       -
         name: Print Docker version
         run: docker -v
@@ -49,25 +32,111 @@ jobs:
         if: env.DOCKERHUB_TOKEN
         run: docker login --username "$DOCKERHUB_USER" --password "$DOCKERHUB_TOKEN"
       -
-        name: Build image
-        run: docker build -t $APP_IMAGE .
+        name: Build and export
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: ${{ env.APP_IMAGE }}
+          outputs: type=docker,dest=/tmp/image.tar
       -
-        name: Run tests
-        run: docker run
-          -e TEST_AWS_STORAGE_API_URL
-          -e TEST_AWS_STORAGE_API_TOKEN
-          -e TEST_AWS_ACCESS_KEY_ID
-          -e TEST_AWS_SECRET_ACCESS_KEY
-          -e TEST_AWS_REGION
-          -e TEST_AWS_S3_BUCKET
-          -e TEST_AZURE_STORAGE_API_URL
-          -e TEST_AZURE_STORAGE_API_TOKEN
-          -e TEST_AZURE_ACCOUNT_NAME
-          -e TEST_AZURE_ACCOUNT_KEY
-          -e TEST_AZURE_CONTAINER_NAME
-          -e TEST_GCP_STORAGE_API_URL
-          -e TEST_GCP_STORAGE_API_TOKEN
-          -e TEST_GCP_BUCKET
-          -e TEST_GCP_SERVICE_ACCOUNT
-          ${{env.APP_IMAGE}}
-          composer ci
+        name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: /tmp/image.tar
+
+  static-analysis:
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency: 
+      group: static-analysis-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image
+          path: /tmp
+      -
+        name: Load image
+        run: docker load --input /tmp/image.tar
+      -
+        name: Run static analysis
+        run: docker run ${{env.APP_IMAGE}} composer static-analysis
+
+  test:
+    needs: static-analysis
+    runs-on: ubuntu-latest
+    concurrency: 
+      group: test-${{ matrix.platform }}-${{ github.ref }}
+      cancel-in-progress: true
+    strategy:
+      matrix:
+        platform: [aws, azure, gcp]
+      # Ensure that a failure in one platform doesn't stop other platforms from testing
+      fail-fast: false
+    env:
+      # AWS Credentials
+      TEST_AWS_ACCESS_KEY_ID: "AKIATDSWT524X5RNRXWF"
+      TEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.TEST_AWS_SECRET_ACCESS_KEY }}
+      TEST_AWS_REGION: "us-east-1"
+      TEST_AWS_S3_BUCKET: "php-kbc-project-backup-s3filesbucket-1d2rc211smfc"
+      # https://connection.keboola.com/ad\min/projects/9016/dashboard
+      TEST_AWS_STORAGE_API_URL: "https://connection.keboola.com/"
+      TEST_AWS_STORAGE_API_TOKEN: "${{ secrets.TEST_AWS_STORAGE_API_TOKEN }}"
+
+      # Azure Credentials
+      TEST_AZURE_ACCOUNT_NAME: "projectmigration"
+      TEST_AZURE_ACCOUNT_KEY: ${{ secrets.TEST_AZURE_ACCOUNT_KEY }}
+      TEST_AZURE_CONTAINER_NAME: "project-migration-test-container"
+      # https://connection.north-europe.azure.keboola.com/admin/projects/5837/dashboard
+      TEST_AZURE_STORAGE_API_URL: "https://connection.north-europe.azure.keboola.com/"
+      TEST_AZURE_STORAGE_API_TOKEN: "${{ secrets.TEST_AZURE_STORAGE_API_TOKEN }}"
+
+      # GCP Credentials
+      TEST_GCP_STORAGE_API_URL: "https://connection.europe-west3.gcp.keboola.com/"
+      TEST_GCP_STORAGE_API_TOKEN: "${{ secrets.TEST_GCP_STORAGE_API_TOKEN }}"
+      TEST_GCP_BUCKET: "ci-php-kbc-project-backup"
+      TEST_GCP_SERVICE_ACCOUNT: "${{ secrets.TEST_GCP_SERVICE_ACCOUNT }}"
+    steps:
+      -
+        name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image
+          path: /tmp
+      -
+        name: Load image
+        run: docker load --input /tmp/image.tar
+      -
+        name: Run ${{ matrix.platform }} tests
+        run: |
+          if [ "${{ matrix.platform }}" = "aws" ]; then
+            docker run \
+              -e TEST_AWS_STORAGE_API_URL \
+              -e TEST_AWS_STORAGE_API_TOKEN \
+              -e TEST_AWS_ACCESS_KEY_ID \
+              -e TEST_AWS_SECRET_ACCESS_KEY \
+              -e TEST_AWS_REGION \
+              -e TEST_AWS_S3_BUCKET \
+              ${{env.APP_IMAGE}} \
+              composer test-aws
+          elif [ "${{ matrix.platform }}" = "azure" ]; then
+            docker run \
+              -e TEST_AZURE_STORAGE_API_URL \
+              -e TEST_AZURE_STORAGE_API_TOKEN \
+              -e TEST_AZURE_ACCOUNT_NAME \
+              -e TEST_AZURE_ACCOUNT_KEY \
+              -e TEST_AZURE_CONTAINER_NAME \
+              ${{env.APP_IMAGE}} \
+              composer test-azure
+          else
+            docker run \
+              -e TEST_GCP_STORAGE_API_URL \
+              -e TEST_GCP_STORAGE_API_TOKEN \
+              -e TEST_GCP_BUCKET \
+              -e TEST_GCP_SERVICE_ACCOUNT \
+              ${{env.APP_IMAGE}} \
+              composer test-gcp
+          fi

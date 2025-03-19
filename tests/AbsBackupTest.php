@@ -498,7 +498,7 @@ class AbsBackupTest extends TestCase
     {
         $bucketId = $this->sapiClient->createBucket('main', Client::STAGE_IN);
 
-        $this->sapiClient->shareBucket($bucketId, ['sharing' => 'organization']);
+        $this->sapiClient->shareOrganizationBucket($bucketId);
 
         $this->sapiClient->createTableAsync(
             'in.c-main',
