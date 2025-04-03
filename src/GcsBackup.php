@@ -7,11 +7,28 @@ namespace Keboola\ProjectBackup;
 use DateTimeImmutable;
 use Google\Cloud\Storage\StorageClient;
 use Google\Cloud\Storage\StorageObject;
+use GuzzleHttp\Exception\RequestException;
 use Keboola\StorageApi\Client as StorageApi;
 use Psr\Log\LoggerInterface;
+use Retry\BackOff\ExponentialBackOffPolicy;
+use Retry\Policy\CallableRetryPolicy;
+use Retry\RetryProxy;
+use Throwable;
 
 class GcsBackup extends Backup
 {
+    // see https://cloud.google.com/storage/docs/retry-strategy
+    public const RETRY_HTTP_CODES = [
+        408, // Request Timeout
+        429, // Too Many Requests
+        500, // Internal Server Error
+        502, // Bad Gateway
+        503, // Service Unavailable
+        504, // Gateway Timeout
+    ];
+
+    public const RETRY_MAX_TRIES = 3;
+
     private array $signedUrls = [];
 
     public function __construct(
@@ -31,9 +48,13 @@ class GcsBackup extends Backup
     protected function putToStorage(string $name, $content): void
     {
         $bucket = $this->storageClient->bucket($this->bucketName);
-        $object = $bucket->upload($content, [
-            'name' => sprintf('%s%s', $this->path, $name),
-        ]);
+
+        /** @var StorageObject $object */
+        $object = $this->createRetry()->call(
+            fn() => $bucket->upload($content, [
+                'name' => sprintf('%s%s', $this->path, $name),
+            ]),
+        );
 
         if ($this->generateSignedUrls) {
             $this->buildTreeFromPath($object, $name);
@@ -65,5 +86,19 @@ class GcsBackup extends Backup
         }
 
         $current[$filename] = $object->signedUrl(new DateTimeImmutable('+2 days'));
+    }
+
+    private function createRetry(): RetryProxy
+    {
+        $backOffPolicy = new ExponentialBackOffPolicy(1000);
+        $retryPolicy = new CallableRetryPolicy(function (Throwable $e) {
+            if ($e instanceof RequestException && in_array($e->getCode(), self::RETRY_HTTP_CODES, true)) {
+                return true;
+            }
+
+            return false;
+        }, self::RETRY_MAX_TRIES);
+
+        return new RetryProxy($retryPolicy, $backOffPolicy, $this->logger);
     }
 }
