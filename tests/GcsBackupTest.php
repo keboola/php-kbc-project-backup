@@ -182,7 +182,7 @@ class GcsBackupTest extends AbstractTestBase
             ->willReturn($mockBucket);
 
         // Configure the mock to fail with 503 more times than max retries
-        $mockBucket->expects($this->exactly(GcsBackup::RETRY_MAX_TRIES))
+        $mockBucket->expects($this->exactly(GcsBackup::MAX_RETRIES))
             ->method('upload')
             ->willThrowException(new ServerException(
                 'Service Unavailable',

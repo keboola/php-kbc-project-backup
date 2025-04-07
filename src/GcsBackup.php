@@ -27,7 +27,7 @@ class GcsBackup extends Backup
         504, // Gateway Timeout
     ];
 
-    public const RETRY_MAX_TRIES = 3;
+    public const MAX_RETRIES = 3;
 
     private array $signedUrls = [];
 
@@ -97,7 +97,7 @@ class GcsBackup extends Backup
             }
 
             return false;
-        }, self::RETRY_MAX_TRIES);
+        }, self::MAX_RETRIES);
 
         return new RetryProxy($retryPolicy, $backOffPolicy, $this->logger);
     }
