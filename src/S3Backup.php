@@ -70,11 +70,7 @@ class S3Backup extends Backup
     {
         $backOffPolicy = new ExponentialBackOffPolicy(1000);
         $retryPolicy = new CallableRetryPolicy(function (Throwable $e) {
-            if ($e instanceof RequestException && in_array($e->getCode(), self::RETRY_HTTP_CODES, true)) {
-                return true;
-            }
-
-            return false;
+            return $e instanceof RequestException && in_array($e->getCode(), self::RETRY_HTTP_CODES, true);
         }, self::MAX_RETRIES);
 
         return new RetryProxy($retryPolicy, $backOffPolicy, $this->logger);
