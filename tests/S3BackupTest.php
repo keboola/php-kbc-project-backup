@@ -121,7 +121,7 @@ class S3BackupTest extends AbstractTestBase
         $mockS3Client = $this->createMock(S3Client::class);
 
         // Configure the mock to fail with 503 more times than max retries
-        $mockS3Client->expects($this->exactly(S3Backup::RETRY_MAX_TRIES))
+        $mockS3Client->expects($this->exactly(S3Backup::MAX_RETRIES))
             ->method('upload')
             ->willThrowException(new ServerException(
                 'Service Unavailable',
