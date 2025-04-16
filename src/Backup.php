@@ -283,10 +283,11 @@ abstract class Backup
             }
 
             $this->putToStorage(
-                sprintf('files/%s', $file['name']),
+                sprintf('files/%s', $file['id']),
                 (string) file_get_contents($file['url']),
             );
             $permanentFiles[] = [
+                'id' => $file['id'],
                 'name'=> $file['name'],
                 'tags' => $file['tags'],
             ];
