@@ -560,9 +560,11 @@ abstract class AbstractTestBase extends TestCase
 
         $data = $this->getStorageContent('permanentFiles.json');
 
-        self::assertEquals('[{"name":"test.txt","tags":["tag1","tag2"]}]', $data);
+        self::assertStringMatchesFormat('[{"id":%d,"name":"test.txt","tags":["tag1","tag2"]}]', $data);
 
-        $data = $this->getStorageContent('files/test.txt');
+        /** @var array{array} $arrayData */
+        $arrayData = json_decode((string) $data, true);
+        $data = $this->getStorageContent('files/' . $arrayData[0]['id']);
 
         self::assertEquals($fileContent, $data);
     }
