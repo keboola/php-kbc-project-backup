@@ -421,7 +421,7 @@ abstract class AbstractTestBase extends TestCase
     {
         $bucketId = $this->sapiClient->createBucket('main', Client::STAGE_IN);
 
-        $this->sapiClient->shareOrganizationBucket($bucketId);
+        $this->sapiClient->shareOrganizationBucket($bucketId, true);
 
         $this->sapiClient->createTableAsync('in.c-main', 'sample', new CsvFile(__DIR__ . '/data/sample.csv'));
 
