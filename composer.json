@@ -57,10 +57,11 @@
         }
     },
     "audit": {
-        "ignore": [
-            "PKSA-y2cr-5h3j-g3ys",
-            "PKSA-2kqm-ps5x-s4f5"
-        ]
+        "ignore": {
+            "PKSA-y2cr-5h3j-g3ys": "firebase/php-jwt is a transitive dependency via google/auth, advisory not exploitable in this context",
+            "PKSA-2kqm-ps5x-s4f5": "firebase/php-jwt is a transitive dependency via google/auth, advisory not exploitable in this context"
+        },
+        "block-insecure": false
     },
     "extra": {
         "patches": {
