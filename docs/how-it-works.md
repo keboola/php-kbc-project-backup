@@ -60,7 +60,7 @@ getTableFileInfo($tableId):
 getFileClient($fileInfo):
   - fileInfo.credentials present       → S3FileClient
   - fileInfo.absCredentials present    → AbsFileClient
-  - fileInfo.provider === 'gcp'        → GcsFileClient
+  - fileInfo.gcsCredentials present    → GcsFileClient
 
 if isSliced:
   GET manifest URL → foreach entry → putToStorage(table.part_N.csv.gz, chunk)
@@ -128,7 +128,7 @@ IFileClient
 Client selection depends on fields in `fileInfo` returned by SAPI:
 - `credentials` field → S3FileClient (AWS)
 - `absCredentials` field → AbsFileClient (Azure)
-- `provider === 'gcp'` → GcsFileClient (Google Cloud)
+- `gcsCredentials` field → GcsFileClient (Google Cloud)
 
 ## What is skipped and why
 

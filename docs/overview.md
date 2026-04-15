@@ -37,7 +37,7 @@ FileClient (interface)
 | `backupTriggers()` | `triggers.json` |
 | `backupNotifications()` | `notifications.json` |
 | `backupPermanentFiles()` | `files/<fileId>` + `permanentFiles.json` |
-| `backupSignedUrls()` | `signedUrls.json` (GCS without user credentials only) |
+| `backupSignedUrls()` | `signedUrls.json` (GCS backend only; populated with signed URLs only when `generateSignedUrls` is enabled) |
 
 ## What is skipped
 
